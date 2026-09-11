@@ -12,6 +12,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-supported-blueviolet.svg)](#-claude-code--cursor-integration)
 [![Cursor](https://img.shields.io/badge/Cursor-supported-blueviolet.svg)](#-claude-code--cursor-integration)
+[![MegaPad MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/EugeneFinch/mechapad-cli/badges/score.svg)](https://glama.ai/mcp/servers/EugeneFinch/mechapad-cli)
 
 [Quickstart](#-quickstart) · [See It in Action](#-see-it-in-action) · [Interactive Actions](#-interactive-post-duel-actions) · [Native MCP](#-claude-code--cursor-integration) · [Zero-Key Auth](#-zero-key-local-session-bridge) · [Contributing](#-contributing)
 

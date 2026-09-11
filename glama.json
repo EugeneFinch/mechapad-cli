@@ -1,0 +1,6 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": ["EugeneFinch"],
+  "name": "mechapad-cli",
+  "description": "Multi-model AI control surface and native MCP server for Claude Code and Cursor. Exposes tools for parallel model code comparison, peer consultation, and terminal diff reviews across Claude, GPT, Grok, and DeepSeek."
+}
