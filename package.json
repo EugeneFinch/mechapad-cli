@@ -1,0 +1,51 @@
+{
+  "name": "mechapad",
+  "version": "0.1.0",
+  "description": "Open Multi-Model AI Control Surface & Native MCP Server — Run Claude, GPT-4o, DeepSeek, and Gemini in parallel",
+  "type": "module",
+  "bin": {
+    "mechapad": "./dist/index.js",
+    "mechapad-mcp": "./dist/index.js",
+    "agentpad": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk && chmod +x dist/index.js",
+    "start": "node dist/index.js",
+    "compare": "node dist/index.js compare",
+    "install:agents": "node dist/index.js install"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EugeneFinch/mechapad-cli.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "codex",
+    "ai-agent",
+    "deepseek",
+    "multi-model",
+    "benchmark"
+  ],
+  "author": "Eugene Finch",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
