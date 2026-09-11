@@ -2265,12 +2265,12 @@ function createProviders() {
 // src/engine.ts
 var PROVIDER_PRICING = {
   claude: {
-    name: "Claude Fable 5 / Sonnet 5",
+    name: "Claude 3.7 Sonnet",
     inputPer1M: 3,
     outputPer1M: 15
   },
   openai: {
-    name: "OpenAI GPT-5.5 / Astra",
+    name: "OpenAI GPT-4o",
     inputPer1M: 2.5,
     outputPer1M: 10
   },
@@ -2286,7 +2286,7 @@ var PROVIDER_PRICING = {
     outputPer1M: 0.28
   },
   gemini: {
-    name: "Gemini 3.8 Pro / Flash",
+    name: "Gemini 2.5 Flash",
     inputPer1M: 0.075,
     outputPer1M: 0.3,
     isSubscriptionOrFree: true

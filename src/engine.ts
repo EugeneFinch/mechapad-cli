@@ -10,12 +10,12 @@ export interface ProviderPricing {
 
 export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
   claude: {
-    name: "Claude Fable 5 / Sonnet 5",
+    name: "Claude 3.7 Sonnet",
     inputPer1M: 3.0,
     outputPer1M: 15.0,
   },
   openai: {
-    name: "OpenAI GPT-5.5 / Astra",
+    name: "OpenAI GPT-4o",
     inputPer1M: 2.5,
     outputPer1M: 10.0,
   },
@@ -31,7 +31,7 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     outputPer1M: 0.28,
   },
   gemini: {
-    name: "Gemini 3.8 Pro / Flash",
+    name: "Gemini 2.5 Flash",
     inputPer1M: 0.075,
     outputPer1M: 0.3,
     isSubscriptionOrFree: true, // Free tier quota
