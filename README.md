@@ -20,10 +20,14 @@
 
 ## ⚡ Quickstart
 
-Run a multi-model comparison on any coding problem in **one command** (no install required):
+Run a multi-model race on any coding question in **one command**:
 
 ```bash
-npx megapad compare "How do I optimize this query?"
+# Global / Local
+pad "How do I optimize this query?"
+
+# Or via npx (zero install)
+npx megapad "How do I optimize this query?"
 ```
 
 *Executes across your available models in parallel and displays latency, generation speed (tok/s), exact token metrics, and cost savings vs Claude.*
@@ -32,23 +36,19 @@ npx megapad compare "How do I optimize this query?"
 
 ## 🤖 Claude Code & Cursor Integration
 
-Add MegaPad directly into your AI coding agent as a **Native Model Context Protocol (MCP) server**:
+Add MegaPad into your AI coding agent as a **Native Model Context Protocol (MCP) server**:
 
 ### 1-Click Auto Configurator
 ```bash
-npx megapad install
+pad install
 ```
 *Auto-detects and writes config for Claude Code (`~/.claude.json`), Cursor (`~/.cursor/mcp.json`), and Codex CLI (`~/.codex/config.toml`).*
 
-### Or Add Directly to Claude Code
-```bash
-claude mcp add megapad -- npx -y megapad
-```
-
-### Try These Inside Claude:
-- `"Compare Claude Fable 5.1 vs DeepSeek V4.1 on this algorithm"`
-- `"Consult DeepSeek R1 for a second opinion on this database schema"`
-- `"Run a multi-model code review council on this file with GPT-6 Astra & Gemini 3.8"`
+### Inside Claude Code (One Unified Slash Command)
+Use the `/pad` slash command directly:
+- `/pad "How do I optimize this query?"` — Instant multi-model race & telemetry
+- `/pad review` — Multi-model code review council
+- `/pad status` — Inspect connected accounts & model subscriptions
 
 ---
 
