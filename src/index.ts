@@ -103,22 +103,35 @@ async function start() {
     }
 
     // Smart 1-on-1 vs / model prefix parsing:
-    // e.g. "vs grok <prompt>" -> models = ["claude", "grok"]
-    // e.g. "deepseek <prompt>" -> models = ["claude", "deepseek"]
-    const knownProviders = ["grok", "deepseek", "gemini", "openai", "chatgpt", "claude", "mock"];
+    // e.g. "vs grok <prompt>", "vs codex <prompt>", "vs deepseek <prompt>"
+    const providerAliasMap: Record<string, string> = {
+      codex: "openai",
+      chatgpt: "openai",
+      gpt: "openai",
+      gpt4: "openai",
+      gpt5: "openai",
+      gpt6: "openai",
+      google: "gemini",
+      anthropic: "claude",
+      xai: "grok",
+    };
+
+    const knownProviders = ["grok", "deepseek", "gemini", "openai", "chatgpt", "codex", "gpt", "claude", "mock"];
     if (!models) {
       if (userPrompt.toLowerCase().startsWith("vs ")) {
         const parts = userPrompt.slice(3).trim().split(" ");
-        const candidate = parts[0]?.toLowerCase();
-        if (candidate && knownProviders.includes(candidate)) {
-          models = ["claude", candidate];
+        const rawCandidate = parts[0]?.toLowerCase() ?? "";
+        const target = providerAliasMap[rawCandidate] || rawCandidate;
+        if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target))) {
+          models = ["claude", target];
           userPrompt = parts.slice(1).join(" ").trim();
         }
       } else {
         const parts = userPrompt.split(" ");
-        const candidate = parts[0]?.toLowerCase();
-        if (candidate && knownProviders.includes(candidate) && parts.length > 1) {
-          models = ["claude", candidate];
+        const rawCandidate = parts[0]?.toLowerCase() ?? "";
+        const target = providerAliasMap[rawCandidate] || rawCandidate;
+        if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
+          models = ["claude", target];
           userPrompt = parts.slice(1).join(" ").trim();
         }
       }
