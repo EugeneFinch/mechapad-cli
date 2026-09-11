@@ -16,16 +16,8 @@ import { homedir } from "node:os";
 /**
  * Detect which AI coding tool the user is running inside of.
  * Returns the provider ID to use as the "home" model in duels.
- *
- * Detection order:
- * 1. MEGAPAD_HOST env var (explicit override)
- * 2. CODEX_CLI_SESSION / running inside Codex → "openai"
- * 3. CLAUDE_CODE_SESSION / running inside Claude Code → "claude"
- * 4. Active session file heuristics (~/.codex/auth.json, ~/.claude.json)
- * 5. Default → "openai"
  */
 function detectHostProvider(): string {
-  // Explicit override
   const hostOverride = process.env.MEGAPAD_HOST?.toLowerCase();
   if (hostOverride) {
     const overrideMap: Record<string, string> = {
@@ -38,39 +30,36 @@ function detectHostProvider(): string {
     return overrideMap[hostOverride] || hostOverride;
   }
 
-  // Codex CLI env markers
-  if (process.env.CODEX_CLI_SESSION || process.env.OPENAI_SESSION) {
-    return "openai";
-  }
+  if (process.env.GROK_CLI_SESSION || process.env.GROK_SESSION || process.env.XAI_SESSION) return "grok";
+  if (process.env.CODEX_CLI_SESSION || process.env.OPENAI_SESSION) return "openai";
+  if (process.env.CLAUDE_CODE_SESSION || process.env.ANTHROPIC_SESSION) return "claude";
 
-  // Claude Code env markers
-  if (process.env.CLAUDE_CODE_SESSION || process.env.ANTHROPIC_SESSION) {
-    return "claude";
-  }
+  try {
+    const { execSync } = require("node:child_process");
+    let currPid = process.ppid;
+    for (let i = 0; i < 6 && currPid > 1; i++) {
+      const line = execSync(`ps -o ppid=,comm= -p ${currPid}`, { encoding: "utf8" }).trim();
+      const parts = line.split(/\s+/);
+      const nextPpid = parseInt(parts[0], 10);
+      const comm = (parts.slice(1).join(" ") || "").toLowerCase();
 
-  // Heuristic: check for active session files
+      if (comm.includes("grok") || comm.includes("xai")) return "grok";
+      if (comm.includes("codex") || comm.includes("openai")) return "openai";
+      if (comm.includes("claude")) return "claude";
+
+      if (!nextPpid || nextPpid <= 1) break;
+      currPid = nextPpid;
+    }
+  } catch { /* ignore */ }
+
   const home = homedir();
+  const hasGrokAuth = existsSync(join(home, ".grok", "auth.json"));
   const hasCodexAuth = existsSync(join(home, ".codex", "auth.json"));
   const hasClaudeConfig = existsSync(join(home, ".claude.json"));
 
-  // If both exist, check which parent process we're running under
-  if (hasCodexAuth && hasClaudeConfig) {
-    // Check parent process name for hints
-    const parentPid = process.ppid;
-    try {
-      const { execSync } = require("node:child_process");
-      const parentName = execSync(`ps -p ${parentPid} -o comm=`, { encoding: "utf8" }).trim().toLowerCase();
-      if (parentName.includes("codex") || parentName.includes("openai")) return "openai";
-      if (parentName.includes("claude")) return "claude";
-    } catch { /* ignore */ }
-    // Default to openai when both sessions exist
-    return "openai";
-  }
-
   if (hasCodexAuth) return "openai";
+  if (hasGrokAuth) return "grok";
   if (hasClaudeConfig) return "claude";
-
-  // Ultimate fallback
   return "openai";
 }
 
@@ -257,21 +246,92 @@ async function start() {
           userPrompt = afterReview || "Thorough multi-model peer code review for edge-case bugs, security vulnerabilities, memory safety, and performance optimizations.";
         }
       } else if (userPrompt.toLowerCase().startsWith("vs ")) {
-        const parts = userPrompt.slice(3).trim().split(" ");
-        const first = parts[0]?.toLowerCase() ?? "";
-        const second = parts[1]?.toLowerCase() ?? "";
-        const target1 = providerAliasMap[first] || (knownProviders.includes(first) ? first : undefined);
-        const target2 = providerAliasMap[second] || (knownProviders.includes(second) ? second : undefined);
+        const providerTiers: Record<string, string[]> = {
+          openai: ["astra", "sol", "gpt-6", "gpt6", "gpt-5.6", "gpt-5.5", "gpt4", "gpt5", "o3", "o4", "codex", "chatgpt"],
+          grok: ["4.6", "grok-4.6", "build", "grok-build", "3", "grok-3", "3-mini", "grok-3-mini", "mini"],
+          claude: ["fable", "claude-5", "sonnet", "opus", "haiku"],
+          deepseek: ["r1", "reasoner", "v4", "v4.1", "chat"],
+          gemini: ["flash", "3.8", "cyber", "pro"],
+        };
 
-        if (target1 && target2 && parts.length > 2) {
-          models = [target1, target2];
-          userPrompt = parts.slice(2).join(" ").trim();
-        } else if (target1) {
-          const hostProvider = detectHostProvider();
-          // If target is the same as host, pick a different challenger
-          const defaultBase = target1 === hostProvider ? (hostProvider === "openai" ? "claude" : "openai") : hostProvider;
-          models = [defaultBase, target1];
-          userPrompt = parts.slice(1).join(" ").trim();
+        const tierToProvider: Record<string, { provider: string; tier: string }> = {
+          astra: { provider: "openai", tier: "astra" },
+          sol: { provider: "openai", tier: "sol" },
+          "gpt-6": { provider: "openai", tier: "astra" },
+          gpt6: { provider: "openai", tier: "astra" },
+          "gpt-5.6": { provider: "openai", tier: "sol" },
+          codex: { provider: "openai", tier: "codex" },
+          chatgpt: { provider: "openai", tier: "chatgpt" },
+          o3: { provider: "openai", tier: "o3" },
+          o4: { provider: "openai", tier: "o4" },
+          "4.6": { provider: "grok", tier: "4.6" },
+          "grok-4.6": { provider: "grok", tier: "4.6" },
+          grok4: { provider: "grok", tier: "4.6" },
+          build: { provider: "grok", tier: "build" },
+          "grok-build": { provider: "grok", tier: "build" },
+          grok3: { provider: "grok", tier: "3" },
+          "grok-3": { provider: "grok", tier: "3" },
+          fable: { provider: "claude", tier: "fable" },
+          "claude-fable": { provider: "claude", tier: "fable" },
+          "claude-5": { provider: "claude", tier: "fable" },
+          sonnet: { provider: "claude", tier: "sonnet" },
+          opus: { provider: "claude", tier: "opus" },
+          haiku: { provider: "claude", tier: "haiku" },
+          r1: { provider: "deepseek", tier: "r1" },
+          "deepseek-r1": { provider: "deepseek", tier: "r1" },
+          reasoner: { provider: "deepseek", tier: "r1" },
+          flash: { provider: "gemini", tier: "flash" },
+        };
+
+        const parseTargetSpec = (tokens: string[]): { spec: string; consumed: number } | null => {
+          if (!tokens.length) return null;
+          const f = tokens[0].toLowerCase();
+          const s = tokens[1]?.toLowerCase();
+
+          if (f.includes(":")) {
+            const [p, t] = f.split(":");
+            const resP = providerAliasMap[p] || (knownProviders.includes(p) ? p : undefined);
+            if (resP) return { spec: `${resP}:${t}`, consumed: 1 };
+          }
+
+          const resP = providerAliasMap[f] || (knownProviders.includes(f) ? f : undefined);
+          if (resP && s) {
+            const tiers = providerTiers[resP] || [];
+            if (tiers.includes(s)) {
+              return { spec: `${resP}:${s}`, consumed: 2 };
+            }
+          }
+
+          if (tierToProvider[f]) {
+            const entry = tierToProvider[f];
+            return { spec: `${entry.provider}:${entry.tier}`, consumed: 1 };
+          }
+
+          if (resP) {
+            return { spec: resP, consumed: 1 };
+          }
+
+          return null;
+        };
+
+        const parts = userPrompt.slice(3).trim().split(" ");
+        const t1 = parseTargetSpec(parts);
+
+        if (t1) {
+          const remaining = parts.slice(t1.consumed);
+          const t2 = parseTargetSpec(remaining);
+
+          if (t2) {
+            models = [t1.spec, t2.spec];
+            userPrompt = remaining.slice(t2.consumed).join(" ").trim();
+          } else {
+            const hostProvider = detectHostProvider();
+            const defaultBase = t1.spec.startsWith(hostProvider)
+              ? (hostProvider === "openai" ? "grok" : "openai")
+              : hostProvider;
+            models = [defaultBase, t1.spec];
+            userPrompt = remaining.join(" ").trim();
+          }
         }
       } else {
         const parts = userPrompt.split(" ");
@@ -279,7 +339,7 @@ async function start() {
         const target = providerAliasMap[rawCandidate] || rawCandidate;
         if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
           const hostProvider = detectHostProvider();
-          const defaultBase = target === hostProvider ? (hostProvider === "openai" ? "claude" : "openai") : hostProvider;
+          const defaultBase = target === hostProvider ? (hostProvider === "openai" ? "grok" : "openai") : hostProvider;
           models = [defaultBase, target];
           userPrompt = parts.slice(1).join(" ").trim();
         }

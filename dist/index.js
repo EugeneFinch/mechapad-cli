@@ -3115,6 +3115,12 @@ var MODEL_ALIAS_MAP = {
   gemini: "gemini",
   grok: "grok",
   grok3: "grok",
+  "grok-3": "grok",
+  grok4: "grok",
+  "grok-4.6": "grok",
+  "4.6": "grok",
+  build: "grok",
+  "grok-build": "grok",
   xai: "grok",
   mock: "mock"
 };
@@ -3125,6 +3131,10 @@ var MultiModelEngine = class {
   }
   resolveProviderId(id) {
     const clean = String(id || "").trim().toLowerCase();
+    if (clean.includes(":")) {
+      const [prov] = clean.split(":");
+      return MODEL_ALIAS_MAP[prov] || prov;
+    }
     return MODEL_ALIAS_MAP[clean] || clean;
   }
   getAvailableModels() {
@@ -3156,8 +3166,25 @@ var MultiModelEngine = class {
       costSavingsPercentVsClaude: savingsPercent
     };
   }
-  async runSingleModel(providerIdOrAlias, prompt, system, effort = "medium") {
-    const providerId = this.resolveProviderId(providerIdOrAlias);
+  async runSingleModel(providerIdOrAlias, prompt, system, effortOverride) {
+    const clean = String(providerIdOrAlias || "").trim().toLowerCase();
+    let providerId;
+    let effort = effortOverride || "medium";
+    let customModelLabel;
+    if (clean.includes(":")) {
+      const [prov, tier] = clean.split(":");
+      providerId = this.resolveProviderId(prov);
+      if (!effortOverride && tier) {
+        effort = tier;
+        customModelLabel = `${prov.toUpperCase()} (${tier})`;
+      }
+    } else {
+      providerId = this.resolveProviderId(clean);
+      if (!effortOverride && clean !== providerId && MODEL_ALIAS_MAP[clean]) {
+        effort = clean;
+        customModelLabel = `${providerId.toUpperCase()} (${clean})`;
+      }
+    }
     const provider = this.providers.get(providerId);
     if (!provider) {
       return {
@@ -3200,7 +3227,7 @@ var MultiModelEngine = class {
       const metrics = this.calculateTokens(prompt, accumulatedText, providerId);
       if (errorDetail && !accumulatedText) {
         return {
-          model: provider.name,
+          model: customModelLabel || provider.name,
           provider: providerId,
           success: false,
           text: "",
@@ -3210,7 +3237,7 @@ var MultiModelEngine = class {
         };
       }
       return {
-        model: provider.name,
+        model: customModelLabel || provider.name,
         provider: providerId,
         success: true,
         text: accumulatedText.trim(),
@@ -3512,10 +3539,11 @@ args = ["serve"]
 async function runScientificCliBenchmark(prompt, modelList) {
   const engine = new MultiModelEngine();
   const available = engine.getAvailableModels();
-  let targetModels = modelList && modelList.length > 0 ? modelList : ["mock", "deepseek", "gemini", "claude", "openai"];
-  targetModels = targetModels.filter(
-    (m) => available.some((a) => a.id === m) || m === "mock"
-  );
+  let targetModels = modelList && modelList.length > 0 ? modelList : ["deepseek", "gemini", "claude", "openai", "grok"];
+  targetModels = targetModels.filter((m) => {
+    const pId = engine.resolveProviderId(m);
+    return available.some((a) => a.id === pId) || pId === "mock";
+  });
   if (targetModels.length === 0) {
     targetModels = ["mock"];
   }
@@ -3539,7 +3567,7 @@ async function runScientificCliBenchmark(prompt, modelList) {
     const tokensPerSec = Math.round(outTokens / durationSec);
     return {
       model: res.model,
-      provider: modelId,
+      provider: engine.resolveProviderId(modelId),
       success: res.success,
       latencyMs,
       inputTokens: inTokens,
@@ -3758,23 +3786,31 @@ function detectHostProvider() {
     };
     return overrideMap[hostOverride] || hostOverride;
   }
+  if (process.env.GROK_CLI_SESSION || process.env.GROK_SESSION || process.env.XAI_SESSION) return "grok";
   if (process.env.CODEX_CLI_SESSION || process.env.OPENAI_SESSION) return "openai";
   if (process.env.CLAUDE_CODE_SESSION || process.env.ANTHROPIC_SESSION) return "claude";
+  try {
+    const { execSync } = __require("node:child_process");
+    let currPid = process.ppid;
+    for (let i = 0; i < 6 && currPid > 1; i++) {
+      const line = execSync(`ps -o ppid=,comm= -p ${currPid}`, { encoding: "utf8" }).trim();
+      const parts = line.split(/\s+/);
+      const nextPpid = parseInt(parts[0], 10);
+      const comm = (parts.slice(1).join(" ") || "").toLowerCase();
+      if (comm.includes("grok") || comm.includes("xai")) return "grok";
+      if (comm.includes("codex") || comm.includes("openai")) return "openai";
+      if (comm.includes("claude")) return "claude";
+      if (!nextPpid || nextPpid <= 1) break;
+      currPid = nextPpid;
+    }
+  } catch {
+  }
   const home = homedir8();
+  const hasGrokAuth = existsSync10(join10(home, ".grok", "auth.json"));
   const hasCodexAuth = existsSync10(join10(home, ".codex", "auth.json"));
   const hasClaudeConfig = existsSync10(join10(home, ".claude.json"));
-  if (hasCodexAuth && hasClaudeConfig) {
-    const parentPid = process.ppid;
-    try {
-      const { execSync } = __require("node:child_process");
-      const parentName = execSync(`ps -p ${parentPid} -o comm=`, { encoding: "utf8" }).trim().toLowerCase();
-      if (parentName.includes("codex") || parentName.includes("openai")) return "openai";
-      if (parentName.includes("claude")) return "claude";
-    } catch {
-    }
-    return "openai";
-  }
   if (hasCodexAuth) return "openai";
+  if (hasGrokAuth) return "grok";
   if (hasClaudeConfig) return "claude";
   return "openai";
 }
@@ -3926,19 +3962,80 @@ ${pipedStdin}
           userPrompt = afterReview || "Thorough multi-model peer code review for edge-case bugs, security vulnerabilities, memory safety, and performance optimizations.";
         }
       } else if (userPrompt.toLowerCase().startsWith("vs ")) {
+        const providerTiers = {
+          openai: ["astra", "sol", "gpt-6", "gpt6", "gpt-5.6", "gpt-5.5", "gpt4", "gpt5", "o3", "o4", "codex", "chatgpt"],
+          grok: ["4.6", "grok-4.6", "build", "grok-build", "3", "grok-3", "3-mini", "grok-3-mini", "mini"],
+          claude: ["fable", "claude-5", "sonnet", "opus", "haiku"],
+          deepseek: ["r1", "reasoner", "v4", "v4.1", "chat"],
+          gemini: ["flash", "3.8", "cyber", "pro"]
+        };
+        const tierToProvider = {
+          astra: { provider: "openai", tier: "astra" },
+          sol: { provider: "openai", tier: "sol" },
+          "gpt-6": { provider: "openai", tier: "astra" },
+          gpt6: { provider: "openai", tier: "astra" },
+          "gpt-5.6": { provider: "openai", tier: "sol" },
+          codex: { provider: "openai", tier: "codex" },
+          chatgpt: { provider: "openai", tier: "chatgpt" },
+          o3: { provider: "openai", tier: "o3" },
+          o4: { provider: "openai", tier: "o4" },
+          "4.6": { provider: "grok", tier: "4.6" },
+          "grok-4.6": { provider: "grok", tier: "4.6" },
+          grok4: { provider: "grok", tier: "4.6" },
+          build: { provider: "grok", tier: "build" },
+          "grok-build": { provider: "grok", tier: "build" },
+          grok3: { provider: "grok", tier: "3" },
+          "grok-3": { provider: "grok", tier: "3" },
+          fable: { provider: "claude", tier: "fable" },
+          "claude-fable": { provider: "claude", tier: "fable" },
+          "claude-5": { provider: "claude", tier: "fable" },
+          sonnet: { provider: "claude", tier: "sonnet" },
+          opus: { provider: "claude", tier: "opus" },
+          haiku: { provider: "claude", tier: "haiku" },
+          r1: { provider: "deepseek", tier: "r1" },
+          "deepseek-r1": { provider: "deepseek", tier: "r1" },
+          reasoner: { provider: "deepseek", tier: "r1" },
+          flash: { provider: "gemini", tier: "flash" }
+        };
+        const parseTargetSpec = (tokens) => {
+          if (!tokens.length) return null;
+          const f = tokens[0].toLowerCase();
+          const s = tokens[1]?.toLowerCase();
+          if (f.includes(":")) {
+            const [p, t] = f.split(":");
+            const resP2 = providerAliasMap[p] || (knownProviders.includes(p) ? p : void 0);
+            if (resP2) return { spec: `${resP2}:${t}`, consumed: 1 };
+          }
+          const resP = providerAliasMap[f] || (knownProviders.includes(f) ? f : void 0);
+          if (resP && s) {
+            const tiers = providerTiers[resP] || [];
+            if (tiers.includes(s)) {
+              return { spec: `${resP}:${s}`, consumed: 2 };
+            }
+          }
+          if (tierToProvider[f]) {
+            const entry = tierToProvider[f];
+            return { spec: `${entry.provider}:${entry.tier}`, consumed: 1 };
+          }
+          if (resP) {
+            return { spec: resP, consumed: 1 };
+          }
+          return null;
+        };
         const parts = userPrompt.slice(3).trim().split(" ");
-        const first = parts[0]?.toLowerCase() ?? "";
-        const second = parts[1]?.toLowerCase() ?? "";
-        const target1 = providerAliasMap[first] || (knownProviders.includes(first) ? first : void 0);
-        const target2 = providerAliasMap[second] || (knownProviders.includes(second) ? second : void 0);
-        if (target1 && target2 && parts.length > 2) {
-          models = [target1, target2];
-          userPrompt = parts.slice(2).join(" ").trim();
-        } else if (target1) {
-          const hostProvider = detectHostProvider();
-          const defaultBase = target1 === hostProvider ? hostProvider === "openai" ? "claude" : "openai" : hostProvider;
-          models = [defaultBase, target1];
-          userPrompt = parts.slice(1).join(" ").trim();
+        const t1 = parseTargetSpec(parts);
+        if (t1) {
+          const remaining = parts.slice(t1.consumed);
+          const t2 = parseTargetSpec(remaining);
+          if (t2) {
+            models = [t1.spec, t2.spec];
+            userPrompt = remaining.slice(t2.consumed).join(" ").trim();
+          } else {
+            const hostProvider = detectHostProvider();
+            const defaultBase = t1.spec.startsWith(hostProvider) ? hostProvider === "openai" ? "grok" : "openai" : hostProvider;
+            models = [defaultBase, t1.spec];
+            userPrompt = remaining.join(" ").trim();
+          }
         }
       } else {
         const parts = userPrompt.split(" ");
@@ -3946,7 +4043,7 @@ ${pipedStdin}
         const target = providerAliasMap[rawCandidate] || rawCandidate;
         if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
           const hostProvider = detectHostProvider();
-          const defaultBase = target === hostProvider ? hostProvider === "openai" ? "claude" : "openai" : hostProvider;
+          const defaultBase = target === hostProvider ? hostProvider === "openai" ? "grok" : "openai" : hostProvider;
           models = [defaultBase, target];
           userPrompt = parts.slice(1).join(" ").trim();
         }

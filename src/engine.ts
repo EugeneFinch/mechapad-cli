@@ -108,6 +108,12 @@ const MODEL_ALIAS_MAP: Record<string, ProviderId> = {
 
   grok: "grok",
   grok3: "grok",
+  "grok-3": "grok",
+  grok4: "grok",
+  "grok-4.6": "grok",
+  "4.6": "grok",
+  build: "grok",
+  "grok-build": "grok",
   xai: "grok",
 
   mock: "mock",
@@ -122,6 +128,10 @@ export class MultiModelEngine {
 
   public resolveProviderId(id: string): ProviderId {
     const clean = String(id || "").trim().toLowerCase();
+    if (clean.includes(":")) {
+      const [prov] = clean.split(":");
+      return MODEL_ALIAS_MAP[prov] || (prov as ProviderId);
+    }
     return MODEL_ALIAS_MAP[clean] || (clean as ProviderId);
   }
 
@@ -169,9 +179,28 @@ export class MultiModelEngine {
     providerIdOrAlias: string,
     prompt: string,
     system?: string,
-    effort = "medium",
+    effortOverride?: string,
   ): Promise<ModelResult> {
-    const providerId = this.resolveProviderId(providerIdOrAlias);
+    const clean = String(providerIdOrAlias || "").trim().toLowerCase();
+    let providerId: ProviderId;
+    let effort = effortOverride || "medium";
+    let customModelLabel: string | undefined;
+
+    if (clean.includes(":")) {
+      const [prov, tier] = clean.split(":");
+      providerId = this.resolveProviderId(prov);
+      if (!effortOverride && tier) {
+        effort = tier;
+        customModelLabel = `${prov.toUpperCase()} (${tier})`;
+      }
+    } else {
+      providerId = this.resolveProviderId(clean);
+      if (!effortOverride && clean !== providerId && MODEL_ALIAS_MAP[clean]) {
+        effort = clean;
+        customModelLabel = `${providerId.toUpperCase()} (${clean})`;
+      }
+    }
+
     const provider = this.providers.get(providerId);
     if (!provider) {
       return {
@@ -218,7 +247,7 @@ export class MultiModelEngine {
 
       if (errorDetail && !accumulatedText) {
         return {
-          model: provider.name,
+          model: customModelLabel || provider.name,
           provider: providerId,
           success: false,
           text: "",
@@ -229,7 +258,7 @@ export class MultiModelEngine {
       }
 
       return {
-        model: provider.name,
+        model: customModelLabel || provider.name,
         provider: providerId,
         success: true,
         text: accumulatedText.trim(),

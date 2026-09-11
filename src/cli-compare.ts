@@ -23,14 +23,15 @@ export async function runScientificCliBenchmark(
   const engine = new MultiModelEngine();
   const available = engine.getAvailableModels();
 
-  let targetModels: ProviderId[] = (modelList && modelList.length > 0)
-    ? (modelList as ProviderId[])
-    : ["mock", "deepseek", "gemini", "claude", "openai"];
+  let targetModels: string[] = (modelList && modelList.length > 0)
+    ? modelList
+    : ["deepseek", "gemini", "claude", "openai", "grok"];
 
-  // Filter to known providers or keep mock for safe testing
-  targetModels = targetModels.filter((m) =>
-    available.some((a) => a.id === m) || m === "mock"
-  );
+  // Filter to valid provider specs or tiers
+  targetModels = targetModels.filter((m) => {
+    const pId = engine.resolveProviderId(m);
+    return available.some((a) => a.id === pId) || pId === "mock";
+  });
 
   if (targetModels.length === 0) {
     targetModels = ["mock"];
@@ -60,7 +61,7 @@ export async function runScientificCliBenchmark(
 
     return {
       model: res.model,
-      provider: modelId,
+      provider: engine.resolveProviderId(modelId),
       success: res.success,
       latencyMs,
       inputTokens: inTokens,
