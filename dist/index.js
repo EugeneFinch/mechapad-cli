@@ -2999,17 +2999,61 @@ ${pipedStdin}
       process.exit(0);
     }
     const providerAliasMap = {
+      // Anthropic tiers
+      fable: "claude",
+      "claude-fable": "claude",
+      "claude-5": "claude",
+      sonnet: "claude",
+      opus: "claude",
+      haiku: "claude",
+      anthropic: "claude",
+      // OpenAI tiers
+      astra: "openai",
+      "gpt-6": "openai",
+      gpt6: "openai",
+      sol: "openai",
+      luna: "openai",
       codex: "openai",
       chatgpt: "openai",
       gpt: "openai",
       gpt4: "openai",
       gpt5: "openai",
-      gpt6: "openai",
+      o3: "openai",
+      o4: "openai",
+      // DeepSeek tiers
+      r1: "deepseek",
+      "deepseek-r1": "deepseek",
+      v4: "deepseek",
+      "v4.1": "deepseek",
+      v41: "deepseek",
+      reasoner: "deepseek",
+      // Google Gemini tiers
+      flash: "gemini",
+      "gemini-flash": "gemini",
+      "gemini-3.8": "gemini",
+      cyber: "gemini",
       google: "gemini",
-      anthropic: "claude",
+      // Grok tiers
+      grok: "grok",
+      grok3: "grok",
       xai: "grok"
     };
-    const knownProviders = ["grok", "deepseek", "gemini", "openai", "chatgpt", "codex", "gpt", "claude", "mock"];
+    const knownProviders = [
+      "grok",
+      "deepseek",
+      "gemini",
+      "openai",
+      "chatgpt",
+      "codex",
+      "gpt",
+      "claude",
+      "fable",
+      "sonnet",
+      "astra",
+      "r1",
+      "flash",
+      "mock"
+    ];
     if (!models) {
       if (userPrompt.toLowerCase().startsWith("vs ")) {
         const parts = userPrompt.slice(3).trim().split(" ");
