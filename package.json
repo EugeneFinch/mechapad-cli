@@ -1,6 +1,6 @@
 {
   "name": "megapad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open Multi-Model AI Control Surface & Native MCP Server — Run Claude Fable 5.1, GPT-6 Astra, DeepSeek V4.1 Flash, and Gemini 3.8 in parallel",
   "type": "module",
   "bin": {
