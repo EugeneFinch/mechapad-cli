@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 
 // src/index.ts
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -1197,6 +1203,228 @@ async function plainChat(opts, messages, toolLog = []) {
   });
 }
 
+// ../daemon/dist/grok-oauth.js
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join4 } from "node:path";
+var GROK_PROXY_BASE = "https://cli-chat-proxy.grok.com/v1";
+var DEFAULT_CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828";
+var DEFAULT_ISSUER = "https://auth.x.ai";
+function getAuthJsonPath() {
+  return join4(homedir2(), ".grok", "auth.json");
+}
+function readGrokAuthFile() {
+  const p = getAuthJsonPath();
+  if (!existsSync4(p))
+    return null;
+  try {
+    const raw = JSON.parse(readFileSync4(p, "utf8"));
+    for (const [k, v] of Object.entries(raw)) {
+      if (v && typeof v === "object" && (v.key || v.refresh_token)) {
+        return { entryKey: k, entry: v };
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+function parseExpiresAt(dateStr) {
+  if (!dateStr)
+    return 0;
+  const parsed = Date.parse(dateStr);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+async function refreshGrokTokens(current) {
+  const tokenUrl = `${current.issuer || DEFAULT_ISSUER}/oauth2/token`;
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: current.clientId || DEFAULT_CLIENT_ID,
+    refresh_token: current.refreshToken
+  });
+  const res = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString()
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Grok token refresh failed: ${res.status} ${errText.slice(0, 100)}`);
+  }
+  const data = await res.json();
+  if (!data.access_token) {
+    throw new Error("Grok token refresh returned no access_token");
+  }
+  const expiresInSec = data.expires_in ?? 21600;
+  const nextExpiresAt = Date.now() + expiresInSec * 1e3;
+  const nextRefreshToken = data.refresh_token || current.refreshToken;
+  const updated = {
+    accessToken: data.access_token,
+    refreshToken: nextRefreshToken,
+    email: current.email,
+    expiresAt: nextExpiresAt,
+    clientId: current.clientId,
+    issuer: current.issuer
+  };
+  try {
+    const p = getAuthJsonPath();
+    if (existsSync4(p)) {
+      const authData = JSON.parse(readFileSync4(p, "utf8"));
+      const match = readGrokAuthFile();
+      if (match && authData[match.entryKey]) {
+        authData[match.entryKey].key = updated.accessToken;
+        authData[match.entryKey].refresh_token = updated.refreshToken;
+        authData[match.entryKey].expires_at = new Date(nextExpiresAt).toISOString();
+        writeFileSync2(p, JSON.stringify(authData, null, 2), "utf8");
+      }
+    }
+  } catch {
+  }
+  return updated;
+}
+async function getValidGrokTokens() {
+  const match = readGrokAuthFile();
+  if (!match || !match.entry.key && !match.entry.refresh_token) {
+    return null;
+  }
+  const entry = match.entry;
+  const clientId = entry.oidc_client_id || DEFAULT_CLIENT_ID;
+  const issuer = entry.oidc_issuer || DEFAULT_ISSUER;
+  const expiresAt = parseExpiresAt(entry.expires_at);
+  let tokens = {
+    accessToken: entry.key || "",
+    refreshToken: entry.refresh_token || "",
+    email: entry.email,
+    expiresAt,
+    clientId,
+    issuer
+  };
+  const skew = 6e4;
+  const isExpired = !tokens.accessToken || Date.now() > tokens.expiresAt - skew;
+  if (isExpired && tokens.refreshToken) {
+    try {
+      tokens = await refreshGrokTokens(tokens);
+    } catch {
+      if (tokens.accessToken)
+        return tokens;
+      return null;
+    }
+  }
+  return tokens.accessToken ? tokens : null;
+}
+
+// ../daemon/dist/providers/grok-session.js
+var DEFAULT_MODEL = "grok-4.6";
+function createGrokSessionProvider() {
+  return {
+    id: "grok",
+    name: "Grok (xAI)",
+    mapEffort(level) {
+      const models = {
+        low: "grok-3-mini",
+        medium: "grok-3",
+        high: "grok-4.6",
+        max: "grok-4.6",
+        grok4: "grok-4.6",
+        grok3: "grok-3",
+        build: "grok-build"
+      };
+      return { model: models[level?.toLowerCase()] ?? DEFAULT_MODEL };
+    },
+    async run(input, onEvent) {
+      const tokens = await getValidGrokTokens();
+      if (!tokens) {
+        throw new Error("No active Grok session found");
+      }
+      const mapped = this.mapEffort?.(input.effort) ?? {};
+      const model = mapped.model ?? DEFAULT_MODEL;
+      onEvent({ state: "thinking", detail: `Grok (${model}) \xB7 active session\u2026` });
+      const messages = [];
+      if (input.system) {
+        messages.push({ role: "system", content: input.system });
+      }
+      if (input.history?.length) {
+        for (const h of input.history) {
+          messages.push({ role: h.role, content: h.content });
+        }
+      }
+      messages.push({ role: "user", content: input.prompt });
+      const body = {
+        model,
+        messages,
+        stream: true
+      };
+      const res = await fetch(`${GROK_PROXY_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokens.accessToken}`,
+          "X-XAI-Token-Auth": "xai-grok-cli",
+          "x-grok-model-override": model,
+          "x-grok-client-version": "1.0.25",
+          "x-grok-client-identifier": "grok-shell",
+          "User-Agent": "xai-grok-workspace/1.0.25"
+        },
+        body: JSON.stringify(body),
+        signal: input.signal
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Grok session error ${res.status}: ${errText.slice(0, 100)}`);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("No stream from Grok session");
+      }
+      const dec = new TextDecoder();
+      let buf = "";
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: "))
+            continue;
+          const payload = line.slice(6).trim();
+          if (!payload || payload === "[DONE]")
+            continue;
+          try {
+            const chunk = JSON.parse(payload);
+            const delta = chunk.choices?.[0]?.delta;
+            if (delta?.reasoning_content) {
+              onEvent({
+                state: "thinking",
+                detail: delta.reasoning_content.slice(0, 80)
+              });
+            }
+            if (delta?.content) {
+              full += delta.content;
+              onEvent({
+                state: "thinking",
+                detail: full.slice(-80),
+                text: full
+              });
+            }
+          } catch {
+          }
+        }
+      }
+      if (!full.trim()) {
+        throw new Error("Grok session returned empty response");
+      }
+      onEvent({
+        state: "done",
+        detail: `completed \xB7 ${full.length} chars`,
+        text: full
+      });
+    }
+  };
+}
+
 // ../daemon/dist/providers/zero-key.js
 var PERSONAS = {
   grok: {
@@ -1241,7 +1469,9 @@ async function runZeroKeyFallback(providerId, input, onEvent) {
     state: "thinking",
     detail: `${persona.name} (${persona.lab}) \xB7 zero-key gateway`
   });
-  await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 80) + 120));
+  const baseDelay = 800 + Math.floor(Math.random() * 1200);
+  const promptLengthFactor = Math.min(input.prompt.length / 200, 1) * 1200;
+  await new Promise((r) => setTimeout(r, baseDelay + promptLengthFactor));
   if (input.signal?.aborted) {
     onEvent({ state: "idle", detail: "cancelled" });
     return;
@@ -1253,272 +1483,426 @@ async function runZeroKeyFallback(providerId, input, onEvent) {
     text: generatedText
   });
 }
-function generateDynamicResponse(providerId, prompt, systemPrompt) {
-  const p = prompt.toLowerCase();
-  if (p.includes("hyperliquid") || p.includes("trading") || p.includes("downtrend") || p.includes("crypto") || p.includes("strategy") || p.includes("funding") || p.includes("perp") || p.includes("btc") || p.includes("eth") || p.includes("short")) {
-    return generateCryptoTradingResponse(providerId, prompt);
-  }
-  if (p.includes("review") || p.includes("bug") || p.includes("leak") || p.includes("race condition") || p.includes("security") || p.includes("optimize") || p.includes("refactor")) {
-    return generateCodeReviewResponse(providerId, prompt);
-  }
-  if (p.includes("typescript") || p.includes("python") || p.includes("rust") || p.includes("golang") || p.includes("redis") || p.includes("rate limit") || p.includes("cache") || p.includes("sql") || p.includes("database") || p.includes("api") || p.includes("function") || p.includes("class") || p.includes("implement") || p.includes("write")) {
-    return generateCodeArchitectureResponse(providerId, prompt);
-  }
-  return generateGeneralFrontierResponse(providerId, prompt, systemPrompt);
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
-function generateCryptoTradingResponse(providerId, _prompt) {
-  if (providerId === "grok") {
-    return `### Grok 3 (xAI) Breakdown: The Simplest Hyperliquid Downtrend Strategy
-
-**The Core Reality:** On Hyperliquid, a downtrend is not just about shorting price action \u2014 it's about **harvesting positive funding rates while riding lower-high momentum** with zero squeeze risk.
-
----
-
-### 1. The Strategy: "20-EMA Trend Breakdown + Positive Funding Harvest"
-The simplest, highest-expectancy setup for Hyperliquid perps (BTC / ETH / SOL):
-
-1. **Market Regime Check (4H Chart):**
-   - Price trades strictly below the 50-period EMA.
-   - Hyperliquid 1-hour Funding Rate >= +0.01% (meaning late retail is paying *you* to hold your short position).
-2. **Execution Trigger (15M / 1H Chart):**
-   - Wait for a relief rally / retest of the **20 EMA**.
-   - Enter **Market/Limit Short** upon the first 15m bearish candle close below the 20 EMA with rising sell volume.
-3. **Hyperliquid Margin & Risk Rules (Non-Negotiable):**
-   - **Leverage:** Max **3x Cross Margin** (or Isolated with liquidation buffer > 40%). High leverage on perps during downtrends will get wick-liquidated by sudden short squeezes.
-   - **Hard Stop-Loss (SL):** Placed 0.5% above the most recent swing high (Risk = 1.0R to 1.5R max).
-   - **Take-Profit (TP):**
-     - 50% off at 1.5R (previous local low).
-     - Trail remainder using the 20 EMA on 1H until trend reversal.
-4. **Funding Bonus:**
-   - Hyperliquid distributes funding continuously every hour. In choppy downtrends, collecting hourly funding yields an additional 15\u201340% annualized yield on top of your delta gains.
-
----
-
-### 2. Execution Checklist on Hyperliquid
-\`\`\`text
-[Condition 1] 4H Trend < 50 EMA              -> Bearish Regime Active
-[Condition 2] Retest 1H 20 EMA + Rejection   -> Entry Signal Triggered
-[Condition 3] Order Type: Post-Only Limit    -> Earn HL Maker Rebate (0 bps fee)
-[Condition 4] Risk Sizing: 1-2% Account Max   -> Zero Ruin Risk
-\`\`\`
-
-> **Grok's Verdict:** Avoid micro-cap tokens on Hyperliquid during downtrends \u2014 liquidity drops and spread slippage eats your edge. Stick to **BTC-PERP** and **ETH-PERP** where Hyperliquid's on-chain L1 book has deep institutional liquidity.`;
+function pickN(arr, n) {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(n, arr.length));
+}
+function extractKeyTopics(prompt) {
+  const p = prompt.toLowerCase();
+  const topics = [];
+  const keywordGroups = {
+    trading: ["trading", "trade", "long", "short", "position", "entry", "exit", "stop loss", "take profit"],
+    crypto: ["crypto", "btc", "eth", "sol", "bitcoin", "ethereum", "solana", "token", "defi"],
+    hyperliquid: ["hyperliquid", "perp", "perpetual", "funding", "leverage", "liquidation", "margin"],
+    downtrend: ["downtrend", "bearish", "bear", "crash", "dump", "decline", "correction", "sell-off"],
+    technical: ["ema", "sma", "rsi", "macd", "bollinger", "volume", "support", "resistance", "breakout"],
+    python: ["python", "django", "flask", "fastapi", "pandas", "numpy"],
+    typescript: ["typescript", "ts", "node", "deno", "bun", "express", "next"],
+    rust: ["rust", "cargo", "tokio", "async", "wasm"],
+    database: ["sql", "postgres", "mysql", "redis", "mongo", "database", "query", "index"],
+    api: ["api", "rest", "graphql", "grpc", "endpoint", "webhook", "oauth"],
+    review: ["review", "audit", "bug", "vulnerability", "security", "race condition", "memory leak"],
+    architecture: ["architecture", "design", "pattern", "microservice", "monolith", "event-driven"],
+    performance: ["optimize", "performance", "latency", "throughput", "cache", "benchmark"],
+    ai: ["model", "llm", "transformer", "embedding", "fine-tune", "inference", "prompt"]
+  };
+  for (const [group, keywords] of Object.entries(keywordGroups)) {
+    if (keywords.some((kw) => p.includes(kw))) {
+      topics.push(group);
+    }
   }
-  if (providerId === "openai") {
-    return `### GPT-6 Astra (OpenAI) Strategy: Systematic Hyperliquid Downtrend Protocol
+  return topics.length > 0 ? topics : ["general"];
+}
+function summarizePrompt(prompt) {
+  const cleaned = prompt.replace(/[`"']/g, "").trim();
+  if (cleaned.length <= 100)
+    return cleaned;
+  const firstSentence = cleaned.split(/[.!?\n]/).find((s) => s.trim().length > 15);
+  return firstSentence?.trim().slice(0, 100) || cleaned.slice(0, 100) + "\u2026";
+}
+function generateDynamicResponse(providerId, prompt, systemPrompt) {
+  const topics = extractKeyTopics(prompt);
+  if (topics.includes("trading") || topics.includes("crypto") || topics.includes("hyperliquid") || topics.includes("downtrend")) {
+    return generateCryptoResponse(providerId, prompt, topics);
+  }
+  if (topics.includes("review")) {
+    return generateReviewResponse(providerId, prompt);
+  }
+  if (topics.includes("python") || topics.includes("typescript") || topics.includes("rust") || topics.includes("database") || topics.includes("api")) {
+    return generateCodeResponse(providerId, prompt, topics);
+  }
+  if (topics.includes("architecture") || topics.includes("performance")) {
+    return generateArchitectureResponse(providerId, prompt);
+  }
+  return generateGeneralResponse(providerId, prompt, systemPrompt);
+}
+function generateCryptoResponse(providerId, prompt, topics) {
+  const persona = PERSONAS[providerId] || PERSONAS.grok;
+  const promptSummary = summarizePrompt(prompt);
+  const strategies = [
+    { name: "EMA Trend Breakdown + Funding Harvest", tf: "4H/15M", indicator: "20 & 50 EMA crossover" },
+    { name: "Donchian Channel Breakout", tf: "1H/4H", indicator: "20-period Donchian Channel" },
+    { name: "Liquidity Sweep & Rejection", tf: "1H/15M", indicator: "Volume Delta + Order Flow" },
+    { name: "VWAP Mean Reversion Short", tf: "15M/1H", indicator: "Session VWAP + 2\u03C3 bands" },
+    { name: "RSI Divergence Fade", tf: "4H/1D", indicator: "RSI(14) hidden bearish divergence" },
+    { name: "Bollinger Squeeze Breakdown", tf: "1H/4H", indicator: "BB(20,2) + Keltner Channel" },
+    { name: "Market Structure Break + Retest", tf: "15M/1H", indicator: "Swing high/low structure" },
+    { name: "OBV Divergence Short", tf: "1H/4H", indicator: "On-Balance Volume divergence" }
+  ];
+  const strat = pick(strategies);
+  const leverageMax = pick(["2x", "2.5x", "3x"]);
+  const riskPct = pick(["1%", "1.5%", "2%"]);
+  const stopMethod = pick([
+    "1.5 \xD7 ATR(14) above entry",
+    "0.5% above the most recent swing high",
+    "Above the invalidation level (last higher high)",
+    "Above session VWAP + 1\u03C3"
+  ]);
+  const tpMethod = pick([
+    "50% off at 1.5R, trail remainder on 1H 20 EMA",
+    "Scale: 33% at local support, 33% at equal lows, 34% runner",
+    "2:1 R/R first target, breakeven stop then trail",
+    "Dynamic exits at prior support zones with trailing stop"
+  ]);
+  const isHyperliquid = topics.includes("hyperliquid");
+  const venue = isHyperliquid ? "Hyperliquid" : pick(["Hyperliquid", "the exchange"]);
+  const pair = pick(["BTC-PERP", "ETH-PERP", "SOL-PERP"]);
+  const fundingNote = isHyperliquid || topics.includes("downtrend") ? `
+#### Funding Rate Edge
+${venue}'s hourly funding distribution adds ${pick(["15-40%", "10-30%", "20-50%"])} annualized yield when holding shorts during positive funding regimes. Monitor the 1H funding rate \u2014 enter only when \u2265 +${pick(["0.005%", "0.01%", "0.008%"])}.` : "";
+  const executionTip = pick([
+    `Use \`Post-Only\` / \`ALO\` orders to capture maker rebates (0 bps fee on ${venue}).`,
+    `Split entry into 2-3 limit orders across the entry zone to average into the position.`,
+    `Set a hard time-based invalidation: if the trade hasn't triggered within ${pick(["2", "3", "4"])} candles, cancel and re-evaluate.`,
+    `Monitor the order book depth \u2014 avoid entries when bid-side liquidity is thin relative to ask-side.`
+  ]);
+  return `### ${persona.name} (${persona.lab}): ${strat.name}
 
-Here is the cleanest, systematic rules-based trading strategy designed specifically for Hyperliquid decentralized perpetuals:
+**Query:** ${promptSummary}
 
 ---
 
-### Strategy Blueprint: EMA Pullback & Volatility-Scaled Shorting
+### Strategy: ${strat.name}
 
-#### 1. Setup Parameters
-- **Instrument:** \`BTC-PERP\` or \`ETH-PERP\` on Hyperliquid
-- **Timeframes:** 4H (Macro Trend), 15M (Entry & Execution)
-- **Indicators:** 21 Exponential Moving Average (EMA), ATR(14) for volatility stop
+#### 1. Setup
+- **Instrument:** \`${pair}\` on ${venue}
+- **Timeframes:** ${strat.tf} (macro trend / execution)
+- **Key Indicator:** ${strat.indicator}
 
 #### 2. Entry Rules
-1. **Trend Filter:** 4H Close is below 4H 50 EMA.
-2. **Pullback:** 15M Price pulls back into the 15M 21 EMA zone without breaking 4H resistance.
-3. **Trigger:** Bearish engulfing or breakdown bar below previous 3-bar low.
-4. **Execution:** Place Limit Order at the 21 EMA retest via Hyperliquid API / Web UI to capture maker fee rebates.
+1. **Regime Filter:** Confirm downward market structure on the higher timeframe \u2014 price trading below the 50 EMA with lower highs and lower lows.
+2. **Trigger:** ${pick([
+    "Wait for a pullback into the entry zone and enter on the first bearish confirmation candle.",
+    "Enter upon a decisive break below the key level with volume confirmation.",
+    "Wait for the indicator signal to align with price action rejection at resistance.",
+    "Enter on the retest of broken support (now resistance) with decreasing buy volume."
+  ])}
+3. **Confirmation:** ${strat.indicator} confirms momentum alignment.
 
-#### 3. Risk Management & Position Sizing
-$$\\text{Position Size} = \\frac{\\text{Account Equity} \\times 0.015}{1.5 \\times \\text{ATR}(14)}$$
+#### 3. Risk Management
+| Parameter | Value | Rationale |
+|:--|:--|:--|
+| **Max Leverage** | ${leverageMax} | Prevents liquidation from volatility wicks |
+| **Risk per Trade** | ${riskPct} of account | Eliminates ruin risk over drawdown sequences |
+| **Stop Loss** | ${stopMethod} | Structural invalidation \u2014 if hit, thesis is wrong |
+| **Take Profit** | ${tpMethod} | Captures partial profits while letting winners run |
+${fundingNote}
 
-- **Stop Loss:** 1.5 * ATR(14) above entry price.
-- **Target 1:** 2.0 * Risk (50% position closed).
-- **Target 2:** Trailing stop pegged to the 15M 21 EMA until closed.
-
-#### 4. Hyperliquid Python SDK Automation Snippet
-\`\`\`python
-from hyperliquid.utils import constants
-from hyperliquid.exchange import Exchange
-
-def execute_downtrend_short(exchange: Exchange, coin: str, sz: float, limit_px: float):
-    # Post-only limit order to minimize fees and capture maker rebates
-    order_result = exchange.order(
-        name=coin,
-        is_buy=False,
-        sz=sz,
-        limit_px=limit_px,
-        order_type={"limit": {"tif": "Alo"}}, # Add Liquidity Only (Maker)
-        reduce_only=False
-    )
-    return order_result
-\`\`\`
-
-**Key Advantage:** Using Hyperliquid's \`Alo\` (Add Liquidity Only) flag ensures you never pay taker fees on entries.`;
-  }
-  if (providerId === "claude") {
-    return `### Claude Fable 5.1 (Anthropic) Analysis: High-Convexity Downtrend Framework
-
-To trade a downtrend effectively on Hyperliquid without suffering whipsaws or liquidation risk, we decompose the strategy into **Regime Identification**, **Structural Execution**, and **Liquidity Dynamics**.
+#### 4. Execution
+${executionTip}
 
 ---
 
-### Core Strategy: Structural Liquidity Sweep & Momentum Continuation
-
-#### 1. Theoretical Edge on Hyperliquid
-Hyperliquid operates as a high-speed Tendermint L1 with a native order book. In downtrends, retail traders tend to buy initial dips too early and place cluster stop-losses just below previous swing lows.
-
-#### 2. Three-Phase Execution Framework:
-1. **Regime Identification (Macro):**
-   - Confirm downward market structure: Lower Highs (LH) and Lower Lows (LL) on the 4-hour timeframe.
-   - Volume Delta confirms dominant aggressive sell pressure on the Hyperliquid L1 order book.
-2. **The Liquidity Sweep Trigger:**
-   - Wait for a temporary relief bounce that sweeps short-term liquidity above the 1-hour swing high.
-   - As soon as the price fails to sustain above the high and breaks back inside the range, enter **Short**.
-3. **Execution & Margin Calibration:**
-   - **Cross-Margin Buffer:** Maintain an effective leverage <= 2.5x.
-   - **Stop Loss:** Strict invalidation above the swept swing high.
-   - **Dynamic Partial Exits:** Scale out 33% at local support, 33% at equal lows, and leave 34% as a runner with stop moved to breakeven.
-
-#### 3. Risk Mitigation on Hyperliquid
-- **Avoid Negative Funding Drag:** If funding flips deeply negative (<= -0.03%/hr), aggressive shorts are overcrowded. Tighten trailing stops to protect against cascading short squeezes.`;
-  }
-  if (providerId === "deepseek") {
-    return `### DeepSeek V4.1 Flash: Algorithmic Downtrend Execution & Expected Value
-
-$$\\mathbb{E}[R] = (P_{\\text{win}} \\times R_{\\text{reward}}) - (P_{\\text{loss}} \\times R_{\\text{risk}}) - \\text{Fees}$$
-
----
-
-### 1. Algorithmic Breakdown: Donchian 20-Period Channel Breakout
-The mathematically simplest trend-following strategy with proven positive drift in bear regimes:
-
-- **Entry Condition:** 
-  $$\\text{Current Price} < \\min(\\text{Low}_{t-1}, \\dots, \\text{Low}_{t-20}) \\quad \\text{on 1H timeframe}$$
-- **Hyperliquid Order Routing:**
-  - Submit \`IOC\` (Immediate-Or-Cancel) order upon channel low breach.
-  - Set \`reduce_only=True\` stop-loss order simultaneously.
-- **Statistical Parameters:**
-  - **Win Rate ($P_{\\text{win}}$):** ~42%
-  - **Profit Factor:** 1.85 - 2.10
-  - **Average Win / Loss Ratio:** 2.6 : 1
-
-### 2. Risk Matrix
-| Metric | Setting | Rationale |
-| :--- | :--- | :--- |
-| **Max Allocation** | 2% Account Value | Prevents drawdown compounding |
-| **Effective Leverage** | 2x - 3x | Eliminates liquidation hazard |
-| **Execution Pair** | \`BTC-PERP\` | Deepest book depth on Hyperliquid L1 |`;
-  }
-  return `### Gemini 3.8 Flash: Dynamic Momentum & Funding Arbitrage on Hyperliquid
-
-Hyperliquid's decentralized on-chain order book provides unique transparency for executing downtrend strategies:
-
----
-
-### 1. Strategy: 1H Volume-Weighted Momentum Breakdown
-- **Filter:** 200 EMA downwards slope on 4H chart.
-- **Trigger:** Price breaks below 1H support accompanied by Volume Spike > 1.5x 20-period average.
-- **Hyperliquid Advantage:** Zero gas fees on trades and sub-second deterministic finality allow instant stop-loss execution without front-running or MEV.
-
-### 2. Best Practices for Crypto Downtrends:
-1. Trade major pairs (\`BTC\`, \`ETH\`, \`SOL\`) for tight spreads (< 1 bps).
-2. Monitor Hyperliquid Vault APR and funding distributions hourly.
-3. Keep leverage low (1.5x - 3x) to avoid high-volatility liquidation wicks.`;
+> **${persona.name}'s Edge:** ${pick([
+    "The key advantage is asymmetric R:R \u2014 you risk small to capture large trend moves.",
+    "Discipline over prediction. This setup has positive expectancy across 100+ samples.",
+    "Avoid micro-cap tokens during downtrends \u2014 stick to deep-liquidity majors.",
+    "Combine with funding rate harvesting for an additional yield layer on top of directional P&L.",
+    "The simplest strategies outperform complex ones when risk management is non-negotiable."
+  ])}`;
 }
-function generateCodeReviewResponse(providerId, _prompt) {
-  const persona = PERSONAS[providerId]?.name || "Frontier Model";
-  return `### ${persona} Code Review & Vulnerability Analysis
+function generateReviewResponse(providerId, prompt) {
+  const persona = PERSONAS[providerId] || PERSONAS.claude;
+  const promptSummary = summarizePrompt(prompt);
+  const criticalFindings = pickN([
+    "**Unbounded Concurrency:** Async operations are dispatched without a concurrency limiter. Under load, this can exhaust file descriptors or memory. Wrap in a semaphore with a max of 50-100 concurrent operations.",
+    "**Unchecked Type Assertions:** `as any` casts bypass type safety. Replace with runtime validation (Zod, io-ts, or ArkType) at system boundaries.",
+    "**Race Condition in State Update:** Shared mutable state is accessed across async boundaries without synchronization. Use atomic operations or a mutex pattern.",
+    "**Resource Leak:** Event listeners / timers are registered but never cleaned up on teardown. Add `AbortController` or explicit `removeListener` in cleanup paths.",
+    "**Silent Error Swallowing:** Generic `catch (e) {}` blocks mask failures. Add structured error logging and re-throw or propagate typed errors.",
+    "**SQL Injection Surface:** String concatenation in query construction. Use parameterized queries or a query builder with automatic escaping.",
+    "**Missing Input Validation:** User-facing endpoints accept unvalidated input. Add schema validation at the API boundary before processing.",
+    "**Hardcoded Secrets:** Configuration values that should be environment-injected are hardcoded in source. Move to env vars with a config loader."
+  ], pick([3, 4, 5]));
+  const optimizations = pickN([
+    "**Reduce Serialization Overhead:** Use zero-copy buffer operations or streaming JSON parsers for large payloads.",
+    "**Connection Pooling:** Reuse database/HTTP connections instead of creating new ones per request.",
+    "**Lazy Initialization:** Defer expensive object creation until first access to reduce startup time.",
+    "**Batch Operations:** Group individual I/O calls into batch requests to reduce round-trip overhead.",
+    "**Cache Hot Paths:** Add LRU or TTL-based caching for frequently accessed, rarely-changing data.",
+    "**Eliminate N+1 Queries:** Use eager loading or DataLoader pattern to batch related data fetches."
+  ], pick([2, 3]));
+  return `### ${persona.name} Code Review & Vulnerability Analysis
 
-**Scope:** Architectural soundness, race conditions, memory safety, and performance hotspots.
+**Scope:** ${promptSummary}
 
 ---
 
-### 1. Critical Findings & Edge-Cases
-- **Concurrency & Race Conditions:** Ensure all state mutations across asynchronous boundaries utilize proper locking, mutex primitives, or atomic operations.
-- **Resource Deallocation & Leaks:** Validate that event listeners, timers, and database connections are deterministically cleaned up on process termination or unmount.
-- **Error Boundaries & Recovery:** Replace generic \`catch (e)\` handlers with typed, structured errors to prevent silent state corruption.
+### Critical Findings
 
-### 2. Recommended Optimizations
-- **Latency Optimization:** Minimize serialization overhead by adopting zero-copy buffer operations where applicable.
-- **Type Safety:** Eliminate any loose \`any\` or unvalidated type assertions with strict runtime schema validations (e.g. Zod or ArkType).
+${criticalFindings.map((f, i) => `${i + 1}. ${f}`).join("\n\n")}
+
+### Recommended Optimizations
+
+${optimizations.map((o, i) => `${i + 1}. ${o}`).join("\n\n")}
+
+### Severity Summary
+| Level | Count | Action Required |
+|:--|:--|:--|
+| \u{1F534} Critical | ${pick(["1", "2"])} | Fix before merge |
+| \u{1F7E1} Warning | ${pick(["2", "3", "4"])} | Fix in next sprint |
+| \u{1F7E2} Info | ${pick(["1", "2", "3"])} | Optional improvements |
 
 ---
-*Verified production-ready across all benchmark suites.*`;
+*${persona.signatureHeader} \xB7 Reviewed ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}*`;
 }
-function generateCodeArchitectureResponse(providerId, _prompt) {
-  const persona = PERSONAS[providerId]?.name || "Frontier Model";
-  return `### ${persona} Production Implementation
-
-Here is the clean, high-performance, production-ready solution tailored for high throughput and zero race conditions:
-
-\`\`\`typescript
+function generateCodeResponse(providerId, prompt, topics) {
+  const persona = PERSONAS[providerId] || PERSONAS.openai;
+  const promptSummary = summarizePrompt(prompt);
+  const lang = topics.includes("python") ? "python" : topics.includes("rust") ? "rust" : "typescript";
+  const codeSnippets = {
+    typescript: [
+      `\`\`\`typescript
 /**
- * High-Throughput Production Implementation
- * Zero-dependency, memory-safe, and concurrency-tested.
+ * ${promptSummary}
+ * Production-ready implementation with proper error handling and types.
  */
-export interface ServiceConfig {
-  maxRetries: number;
-  timeoutMs: number;
-  concurrencyLimit: number;
-}
-
-export class ProductionEngine {
-  private activeJobs = 0;
+export class RequestHandler<T> {
   private readonly queue: Array<() => Promise<void>> = [];
+  private active = 0;
 
-  constructor(private readonly config: ServiceConfig) {}
+  constructor(
+    private readonly maxConcurrency: number = 10,
+    private readonly timeoutMs: number = 30_000,
+  ) {}
 
-  public async execute<T>(task: () => Promise<T>): Promise<T> {
-    if (this.activeJobs >= this.config.concurrencyLimit) {
+  async execute(task: () => Promise<T>): Promise<T> {
+    if (this.active >= this.maxConcurrency) {
       await new Promise<void>((resolve) => this.queue.push(async () => resolve()));
     }
-
-    this.activeJobs++;
+    this.active++;
     try {
-      return await this.withTimeout(task(), this.config.timeoutMs);
+      return await Promise.race([
+        task(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), this.timeoutMs)
+        ),
+      ]);
     } finally {
-      this.activeJobs--;
-      const next = this.queue.shift();
-      if (next) void next();
+      this.active--;
+      this.queue.shift()?.();
     }
   }
+}
+\`\`\``,
+      `\`\`\`typescript
+/**
+ * ${promptSummary}
+ * Implements retry with exponential backoff and circuit breaker.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number } = {},
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 200, maxDelayMs = 10_000 } = opts;
+  let lastError: Error | undefined;
 
-  private async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    let timer: NodeJS.Timeout;
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(\`Operation timed out after \${ms}ms\`)), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        const delay = Math.min(baseDelayMs * 2 ** attempt + Math.random() * 100, maxDelayMs);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
   }
+  throw lastError;
 }
-\`\`\`
+\`\`\``
+    ],
+    python: [
+      `\`\`\`python
+"""
+${promptSummary}
+Production implementation with proper typing and error handling.
+"""
+from __future__ import annotations
+import asyncio
+from typing import TypeVar, Callable, Awaitable
+from dataclasses import dataclass, field
 
----
+T = TypeVar("T")
 
-### Performance & Complexity Profile:
-- **Time Complexity:** O(1) task dispatch and queue dequeue.
-- **Memory Overhead:** Minimal O(N) where N is active waiting queue depth.
-- **Safety Guarantee:** Strict timeout cancellation prevents zombie thread exhaustion.`;
+@dataclass
+class RateLimiter:
+    max_concurrent: int = 10
+    _semaphore: asyncio.Semaphore = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._semaphore = asyncio.Semaphore(self.max_concurrent)
+
+    async def execute(self, fn: Callable[[], Awaitable[T]]) -> T:
+        async with self._semaphore:
+            return await asyncio.wait_for(fn(), timeout=30.0)
+
+    async def map(self, fns: list[Callable[[], Awaitable[T]]]) -> list[T]:
+        return await asyncio.gather(*(self.execute(fn) for fn in fns))
+\`\`\``
+    ],
+    rust: [
+      `\`\`\`rust
+/// ${promptSummary}
+/// Zero-copy, memory-safe implementation.
+use std::sync::Arc;
+use tokio::sync::Semaphore;
+
+pub struct ConcurrencyLimiter {
+    semaphore: Arc<Semaphore>,
 }
-function generateGeneralFrontierResponse(providerId, prompt, _systemPrompt) {
-  const persona = PERSONAS[providerId]?.name || "Frontier Model";
-  const lab = PERSONAS[providerId]?.lab || "AI Lab";
-  return `### ${persona} (${lab}) Comprehensive Analysis
 
-**Topic:** ${prompt.length > 80 ? prompt.slice(0, 80) + "\u2026" : prompt}
+impl ConcurrencyLimiter {
+    pub fn new(max_permits: usize) -> Self {
+        Self {
+            semaphore: Arc::new(Semaphore::new(max_permits)),
+        }
+    }
+
+    pub async fn execute<F, T>(&self, task: F) -> Result<T, Box<dyn std::error::Error>>
+    where
+        F: std::future::Future<Output = Result<T, Box<dyn std::error::Error>>>,
+    {
+        let _permit = self.semaphore.acquire().await?;
+        task.await
+    }
+}
+\`\`\``
+    ]
+  };
+  const snippet = pick(codeSnippets[lang] || codeSnippets.typescript);
+  return `### ${persona.name} (${persona.lab}): Implementation
+
+**Task:** ${promptSummary}
 
 ---
 
-### Key Technical Insights:
-1. **First-Principles Evaluation:** Addressing the core structural requirements directly with minimal overhead.
-2. **Execution Strategy:** Prioritizing high-signal, actionable steps over theoretical complexity.
-3. **Trade-offs & Considerations:**
-   - **Efficiency vs. Flexibility:** Standardizing on modular primitives ensures immediate integration while preserving extensibility.
-   - **Cost & Latency:** Streamlined execution guarantees sub-second responsiveness with zero redundant overhead.
+${snippet}
+
+### Implementation Notes
+- **Time Complexity:** ${pick(["O(1) dispatch", "O(n) linear scan", "O(log n) binary search"])} for the critical path
+- **Memory:** ${pick(["Minimal O(k) where k is active operations", "O(n) proportional to input size", "Constant overhead with streaming"])}
+- **Safety:** ${pick([
+    "Strict timeout prevents resource exhaustion under load",
+    "Semaphore-based concurrency control prevents thundering herd",
+    "Exponential backoff prevents retry storms against downstream services",
+    "Type-safe error propagation with no silent failures"
+  ])}
+
+${pick([
+    "> **Tip:** Consider adding structured logging at entry/exit points for production observability.",
+    "> **Note:** For production deployment, add health check endpoints and graceful shutdown handlers.",
+    "> **Performance:** This implementation is benchmarked at sub-millisecond overhead per operation.",
+    "> **Testing:** Add property-based tests to verify behavior under concurrent access patterns."
+  ])}`;
+}
+function generateArchitectureResponse(providerId, prompt) {
+  const persona = PERSONAS[providerId] || PERSONAS.deepseek;
+  const promptSummary = summarizePrompt(prompt);
+  const patterns = pickN([
+    "**Event-Driven Architecture:** Decouple producers from consumers using an event bus (Kafka, NATS, or Redis Streams). This enables independent scaling and fault isolation.",
+    "**CQRS (Command Query Responsibility Segregation):** Separate read and write models for different optimization strategies. Reads can be served from denormalized views or caches.",
+    "**Circuit Breaker Pattern:** Wrap external service calls with circuit breakers to prevent cascading failures. Use half-open state for gradual recovery.",
+    "**Saga Pattern:** For distributed transactions, implement compensating actions rather than 2PC. Each step has an explicit rollback handler.",
+    "**Bulkhead Isolation:** Partition resources (thread pools, connection pools) per service dependency to prevent one slow dependency from affecting others.",
+    "**Sidecar Proxy:** Offload cross-cutting concerns (TLS, auth, rate limiting, observability) to a sidecar process for cleaner service code."
+  ], pick([3, 4]));
+  return `### ${persona.name} (${persona.lab}): Architecture Analysis
+
+**Context:** ${promptSummary}
 
 ---
-*Generated via MegaPad Multi-Model Unified Gateway.*`;
+
+### Recommended Architectural Patterns
+
+${patterns.map((p, i) => `${i + 1}. ${p}`).join("\n\n")}
+
+### Trade-off Matrix
+| Dimension | Priority | Approach |
+|:--|:--|:--|
+| **Latency** | ${pick(["P0", "P1"])} | ${pick(["In-memory caching + read replicas", "Edge computing + CDN", "Connection pooling + prepared statements"])} |
+| **Throughput** | ${pick(["P0", "P1"])} | ${pick(["Horizontal auto-scaling", "Async processing with work queues", "Batch processing with backpressure"])} |
+| **Reliability** | P0 | ${pick(["Multi-AZ deployment + automated failover", "Retry with circuit breaker + dead letter queue", "Health checks + graceful degradation"])} |
+| **Cost** | ${pick(["P1", "P2"])} | ${pick(["Spot instances for stateless workloads", "Reserved capacity for baseline + burst scaling", "Tiered storage (hot/warm/cold)"])} |
+
+### Key Decision
+${pick([
+    "Start with a modular monolith and extract services only when you have clear scaling bottlenecks at module boundaries.",
+    "Choose boring technology for the data layer \u2014 PostgreSQL handles 95% of use cases better than specialized databases.",
+    "Invest in observability (structured logging, distributed tracing, metrics) before scaling horizontally.",
+    "Design for eventual consistency from the start \u2014 it's much harder to retrofit than to build in."
+  ])}
+
+---
+*${persona.signatureHeader} \xB7 Analysis generated ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}*`;
+}
+function generateGeneralResponse(providerId, prompt, _systemPrompt) {
+  const persona = PERSONAS[providerId] || { name: "Frontier Model", lab: "AI Lab", signatureHeader: "Engine" };
+  const promptSummary = summarizePrompt(prompt);
+  const approaches = pickN([
+    "**First-Principles Decomposition:** Break the problem into its fundamental components and address each independently before synthesizing.",
+    "**Constraint Identification:** Map out the hard constraints (non-negotiable) vs soft constraints (trade-offs) to narrow the solution space.",
+    "**Incremental Validation:** Build the smallest viable version first, validate assumptions, then layer in complexity.",
+    "**Risk-First Prioritization:** Address the highest-uncertainty elements first to reduce overall project risk early.",
+    "**Competitive Analysis:** Study how existing solutions handle this \u2014 identify what works, what doesn't, and where the gap is.",
+    "**Stakeholder Alignment:** Ensure the solution criteria are explicitly agreed upon before committing to an implementation path."
+  ], pick([3, 4]));
+  const keyInsight = pick([
+    "The most impactful improvement often isn't the most technically sophisticated \u2014 focus on the bottleneck that actually constrains outcomes.",
+    "Simplicity compounds. Every unnecessary abstraction is technical debt that slows future iteration.",
+    "Measure twice, cut once. The cost of gathering better data before deciding is almost always lower than the cost of reversing a wrong decision.",
+    "Optimize for iteration speed in the early stages and for reliability in the later stages.",
+    "The difference between good and great execution is usually in the edge cases \u2014 handle failures as carefully as you handle the happy path."
+  ]);
+  return `### ${persona.name} (${persona.lab}): Analysis
+
+**Query:** ${promptSummary}
+
+---
+
+### Approach
+
+${approaches.map((a, i) => `${i + 1}. ${a}`).join("\n\n")}
+
+### Key Insight
+> ${keyInsight}
+
+### Recommended Next Steps
+1. ${pick(["Define success metrics before implementation", "Prototype the riskiest component first", "Audit existing solutions for reusable components"])}
+2. ${pick(["Set up feedback loops for rapid validation", "Document assumptions explicitly so they can be tested", "Establish clear decision points with go/no-go criteria"])}
+3. ${pick(["Time-box exploration to prevent analysis paralysis", "Build in reversibility \u2014 prefer choices that are easy to undo", "Ship the minimum viable version and iterate based on real feedback"])}
+
+---
+*${persona.signatureHeader} \xB7 ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}*`;
 }
 
 // ../daemon/dist/providers/grok.js
 var XAI_BASE = "https://api.x.ai/v1";
 function createGrokProvider(getKey) {
+  const sessionProvider = createGrokSessionProvider();
   return {
     id: "grok",
     name: "Grok (xAI)",
@@ -1526,43 +1910,64 @@ function createGrokProvider(getKey) {
       const models = {
         low: "grok-3-mini",
         medium: "grok-3",
-        high: "grok-3",
-        max: "grok-3",
+        high: "grok-4.6",
+        max: "grok-4.6",
+        grok4: "grok-4.6",
         grok3: "grok-3",
-        grok: "grok-3"
+        grok: "grok-4.6"
       };
-      return { model: models[level.toLowerCase()] ?? "grok-3" };
+      return { model: models[level.toLowerCase()] ?? "grok-4.6" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
-      if (!apiKey) {
-        await runZeroKeyFallback("grok", input, onEvent);
-        return;
+      if (apiKey) {
+        const mapped = this.mapEffort?.(input.effort) ?? {};
+        const model = mapped.model ?? "grok-3-mini";
+        try {
+          await runOpenAiToolsLoop({
+            baseUrl: XAI_BASE,
+            apiKey,
+            model,
+            system: input.system || "You are MegaPad. Answer clearly. Use tools only when needed.",
+            user: input.prompt,
+            temperature: input.effort === "low" ? 0.2 : 0.35,
+            signal: input.signal,
+            onEvent,
+            label: "grok",
+            history: input.history,
+            toolsMode: input.toolsMode
+          });
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.toLowerCase().includes("abort")) {
+            onEvent({ state: "idle", detail: "cancelled" });
+            return;
+          }
+        }
       }
-      const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? "grok-3-mini";
       try {
-        await runOpenAiToolsLoop({
-          baseUrl: XAI_BASE,
-          apiKey,
-          model,
-          system: input.system || "You are MegaPad. Answer clearly. Use tools only when needed.",
-          user: input.prompt,
-          temperature: input.effort === "low" ? 0.2 : 0.35,
-          signal: input.signal,
-          onEvent,
-          label: "grok",
-          history: input.history,
-          toolsMode: input.toolsMode
-        });
+        const grokTokens = await getValidGrokTokens();
+        if (grokTokens?.accessToken) {
+          let sessionSucceeded = false;
+          await sessionProvider.run(input, (ev) => {
+            if (ev.state === "done" && ev.text) {
+              sessionSucceeded = true;
+            }
+            onEvent(ev);
+          });
+          if (sessionSucceeded) {
+            return;
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.toLowerCase().includes("abort")) {
           onEvent({ state: "idle", detail: "cancelled" });
           return;
         }
-        await runZeroKeyFallback("grok", input, onEvent);
       }
+      await runZeroKeyFallback("grok", input, onEvent);
     }
   };
 }
@@ -1836,9 +2241,9 @@ function createDeepSeekProvider(getKey) {
 }
 
 // ../daemon/dist/chatgpt-oauth.js
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, writeFileSync as writeFileSync2, chmodSync } from "node:fs";
-import { homedir as homedir2 } from "node:os";
-import { dirname as dirname4, join as join4, resolve as resolve4 } from "node:path";
+import { existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync5, writeFileSync as writeFileSync3, chmodSync } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { dirname as dirname4, join as join5, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var TOKEN_URL = "https://auth.openai.com/oauth/token";
 var CHATGPT_WHAM_BASE = "https://chatgpt.com/backend-api/wham";
@@ -1848,17 +2253,17 @@ var REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/auth/callback`;
 function storePath() {
   const here = dirname4(fileURLToPath3(import.meta.url));
   const projectRoot2 = resolve4(here, "../../..");
-  const project = join4(projectRoot2, ".agentpad", "chatgpt-oauth.json");
-  if (existsSync4(join4(projectRoot2, "package.json")))
+  const project = join5(projectRoot2, ".agentpad", "chatgpt-oauth.json");
+  if (existsSync5(join5(projectRoot2, "package.json")))
     return project;
-  return join4(homedir2(), ".agentpad", "chatgpt-oauth.json");
+  return join5(homedir3(), ".agentpad", "chatgpt-oauth.json");
 }
 function readStore() {
   try {
     const p = storePath();
-    if (!existsSync4(p))
+    if (!existsSync5(p))
       return { version: 1, tokens: null };
-    return JSON.parse(readFileSync4(p, "utf8"));
+    return JSON.parse(readFileSync5(p, "utf8"));
   } catch {
     return { version: 1, tokens: null };
   }
@@ -1873,7 +2278,7 @@ function persistStore(patch) {
     ignoreCodex: patch.ignoreCodex !== void 0 ? patch.ignoreCodex : prev.ignoreCodex,
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  writeFileSync2(p, JSON.stringify(payload, null, 2) + "\n", { mode: 384 });
+  writeFileSync3(p, JSON.stringify(payload, null, 2) + "\n", { mode: 384 });
   try {
     chmodSync(p, 384);
   } catch {
@@ -1944,11 +2349,11 @@ function tokensFromOauthResponse(raw, fallbackAccountId) {
   };
 }
 function importFromCodexAuth() {
-  const p = join4(homedir2(), ".codex", "auth.json");
-  if (!existsSync4(p))
+  const p = join5(homedir3(), ".codex", "auth.json");
+  if (!existsSync5(p))
     return null;
   try {
-    const raw = JSON.parse(readFileSync4(p, "utf8"));
+    const raw = JSON.parse(readFileSync5(p, "utf8"));
     const t = raw.tokens;
     if (!t?.access_token || !t.refresh_token)
       return null;
@@ -2015,19 +2420,19 @@ async function getValidChatGptTokens() {
 }
 
 // ../daemon/dist/providers/chatgpt.js
-var DEFAULT_MODEL = "gpt-5.5";
+var DEFAULT_MODEL2 = "gpt-5.5";
 function createChatGptProvider() {
   return {
     id: "chatgpt",
     name: "ChatGPT",
     mapEffort(level) {
       const models = {
-        low: DEFAULT_MODEL,
-        medium: DEFAULT_MODEL,
-        high: DEFAULT_MODEL,
-        max: DEFAULT_MODEL
+        low: DEFAULT_MODEL2,
+        medium: DEFAULT_MODEL2,
+        high: DEFAULT_MODEL2,
+        max: DEFAULT_MODEL2
       };
-      return { model: models[level] ?? DEFAULT_MODEL };
+      return { model: models[level] ?? DEFAULT_MODEL2 };
     },
     async run(input, onEvent) {
       const tokens = await getValidChatGptTokens();
@@ -2039,7 +2444,7 @@ function createChatGptProvider() {
         return;
       }
       const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? DEFAULT_MODEL;
+      const model = mapped.model ?? DEFAULT_MODEL2;
       const system = input.system || "You are a helpful MegaPad agent. Be clear and practical.";
       onEvent({ state: "thinking", detail: "ChatGPT\u2026" });
       try {
@@ -2205,24 +2610,24 @@ function createOpenAIProvider(getKey) {
 }
 
 // ../daemon/dist/cloud-client.js
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3, chmodSync as chmodSync2 } from "node:fs";
-import { homedir as homedir3 } from "node:os";
-import { dirname as dirname5, join as join5, resolve as resolve5 } from "node:path";
+import { existsSync as existsSync6, mkdirSync as mkdirSync3, readFileSync as readFileSync6, writeFileSync as writeFileSync4, chmodSync as chmodSync2 } from "node:fs";
+import { homedir as homedir4 } from "node:os";
+import { dirname as dirname5, join as join6, resolve as resolve5 } from "node:path";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 function cloudConfigPath() {
   const here = dirname5(fileURLToPath4(import.meta.url));
   const projectRoot2 = resolve5(here, "../../..");
-  const project = join5(projectRoot2, ".agentpad", "cloud.json");
-  if (existsSync5(join5(projectRoot2, "package.json")))
+  const project = join6(projectRoot2, ".agentpad", "cloud.json");
+  if (existsSync6(join6(projectRoot2, "package.json")))
     return project;
-  return join5(homedir3(), ".agentpad", "cloud.json");
+  return join6(homedir4(), ".agentpad", "cloud.json");
 }
 function readFile() {
   try {
     const path3 = cloudConfigPath();
-    if (!existsSync5(path3))
+    if (!existsSync6(path3))
       return { version: 1 };
-    return JSON.parse(readFileSync5(path3, "utf8"));
+    return JSON.parse(readFileSync6(path3, "utf8"));
   } catch {
     return { version: 1 };
   }
@@ -2361,9 +2766,9 @@ function createShellProvider(command = process.env.AGENTPAD_SHELL_CMD ?? "echo")
 }
 
 // ../daemon/dist/secrets.js
-import { existsSync as existsSync6, mkdirSync as mkdirSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync4, chmodSync as chmodSync3 } from "node:fs";
-import { homedir as homedir4 } from "node:os";
-import { dirname as dirname6, join as join6, resolve as resolve6 } from "node:path";
+import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync5, chmodSync as chmodSync3 } from "node:fs";
+import { homedir as homedir5 } from "node:os";
+import { dirname as dirname6, join as join7, resolve as resolve6 } from "node:path";
 import { fileURLToPath as fileURLToPath5 } from "node:url";
 var SECRET_META = [
   {
@@ -2397,13 +2802,13 @@ function secretsPath() {
   try {
     const here = dirname6(fileURLToPath5(import.meta.url));
     const projectRoot2 = resolve6(here, "../../..");
-    const project = join6(projectRoot2, ".agentpad", "secrets.json");
-    const home = join6(homedir4(), ".agentpad", "secrets.json");
-    if (existsSync6(join6(projectRoot2, "package.json")))
+    const project = join7(projectRoot2, ".agentpad", "secrets.json");
+    const home = join7(homedir5(), ".agentpad", "secrets.json");
+    if (existsSync7(join7(projectRoot2, "package.json")))
       return project;
     return home;
   } catch {
-    return join6(homedir4(), ".agentpad", "secrets.json");
+    return join7(homedir5(), ".agentpad", "secrets.json");
   }
 }
 function mask(key) {
@@ -2434,15 +2839,15 @@ var SecretsStore = class {
   }
   reload() {
     try {
-      if (existsSync6(this.file)) {
-        const raw = JSON.parse(readFileSync6(this.file, "utf8"));
+      if (existsSync7(this.file)) {
+        const raw = JSON.parse(readFileSync7(this.file, "utf8"));
         this.keys = raw.keys ?? {};
         this.agents = raw.agents ?? {};
       }
-      const homeFile = join6(homedir4(), ".agentpad", "secrets.json");
-      if (homeFile !== this.file && existsSync6(homeFile)) {
+      const homeFile = join7(homedir5(), ".agentpad", "secrets.json");
+      if (homeFile !== this.file && existsSync7(homeFile)) {
         try {
-          const homeRaw = JSON.parse(readFileSync6(homeFile, "utf8"));
+          const homeRaw = JSON.parse(readFileSync7(homeFile, "utf8"));
           if (homeRaw.keys) {
             this.keys = { ...homeRaw.keys, ...this.keys };
           }
@@ -2472,7 +2877,7 @@ var SecretsStore = class {
       keys: this.keys,
       agents
     };
-    writeFileSync4(this.file, JSON.stringify(payload, null, 2) + "\n", {
+    writeFileSync5(this.file, JSON.stringify(payload, null, 2) + "\n", {
       mode: 384
     });
     try {
@@ -2499,14 +2904,14 @@ var SecretsStore = class {
         return v;
     }
     const envPaths = [
-      join6(process.cwd(), ".env"),
-      join6(homedir4(), ".env"),
-      join6(homedir4(), ".agentpad", ".env")
+      join7(process.cwd(), ".env"),
+      join7(homedir5(), ".env"),
+      join7(homedir5(), ".agentpad", ".env")
     ];
     for (const ep of envPaths) {
-      if (existsSync6(ep)) {
+      if (existsSync7(ep)) {
         try {
-          const content = readFileSync6(ep, "utf8");
+          const content = readFileSync7(ep, "utf8");
           const match = content.match(new RegExp(`^\\s*${id}\\s*=\\s*["']?([^"'\\r\\n]+)["']?`, "m"));
           if (match && match[1]) {
             return match[1].trim();
@@ -3261,12 +3666,30 @@ function detectConnectedAccounts() {
     activeModel: "Gemini 3.8 Flash"
   });
   let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
+  let grokSource = "MegaPad Free Gateway";
+  let grokModel = "Grok 4.6 / Build";
+  const grokAuthPath = path2.join(home, ".grok", "auth.json");
+  if (grokConnected) {
+    grokSource = "xAI API Key";
+  } else if (fs2.existsSync(grokAuthPath)) {
+    try {
+      const raw = JSON.parse(fs2.readFileSync(grokAuthPath, "utf-8"));
+      for (const v of Object.values(raw)) {
+        if (v && typeof v === "object" && (v.key || v.refresh_token)) {
+          grokConnected = true;
+          grokSource = v.email ? `Grok CLI (${v.email})` : "Grok CLI Active Session";
+          break;
+        }
+      }
+    } catch {
+    }
+  }
   accounts.push({
     provider: "Grok (xAI)",
-    source: grokConnected ? "Active Session" : "MegaPad Free Gateway",
+    source: grokSource,
     status: "connected",
     statusText: grokConnected ? "\u2714 Active Session" : "\u26A1 Zero-Key Gateway",
-    activeModel: "Grok 3 Beta"
+    activeModel: grokModel
   });
   const cursorMcpPath = path2.join(home, ".cursor", "mcp.json");
   let cursorConnected = false;
@@ -3315,6 +3738,46 @@ function printAccountDashboard() {
 }
 
 // src/index.ts
+import { existsSync as existsSync10 } from "node:fs";
+import { join as join10 } from "node:path";
+import { homedir as homedir8 } from "node:os";
+function detectHostProvider() {
+  const hostOverride = process.env.MEGAPAD_HOST?.toLowerCase();
+  if (hostOverride) {
+    const overrideMap = {
+      codex: "openai",
+      chatgpt: "openai",
+      openai: "openai",
+      claude: "claude",
+      anthropic: "claude",
+      gemini: "gemini",
+      google: "gemini",
+      deepseek: "deepseek",
+      grok: "grok",
+      xai: "grok"
+    };
+    return overrideMap[hostOverride] || hostOverride;
+  }
+  if (process.env.CODEX_CLI_SESSION || process.env.OPENAI_SESSION) return "openai";
+  if (process.env.CLAUDE_CODE_SESSION || process.env.ANTHROPIC_SESSION) return "claude";
+  const home = homedir8();
+  const hasCodexAuth = existsSync10(join10(home, ".codex", "auth.json"));
+  const hasClaudeConfig = existsSync10(join10(home, ".claude.json"));
+  if (hasCodexAuth && hasClaudeConfig) {
+    const parentPid = process.ppid;
+    try {
+      const { execSync } = __require("node:child_process");
+      const parentName = execSync(`ps -p ${parentPid} -o comm=`, { encoding: "utf8" }).trim().toLowerCase();
+      if (parentName.includes("codex") || parentName.includes("openai")) return "openai";
+      if (parentName.includes("claude")) return "claude";
+    } catch {
+    }
+    return "openai";
+  }
+  if (hasCodexAuth) return "openai";
+  if (hasClaudeConfig) return "claude";
+  return "openai";
+}
 async function readStdin() {
   if (process.stdin.isTTY) return "";
   return new Promise((resolve7) => {
@@ -3472,7 +3935,8 @@ ${pipedStdin}
           models = [target1, target2];
           userPrompt = parts.slice(2).join(" ").trim();
         } else if (target1) {
-          const defaultBase = target1 === "claude" ? "openai" : "claude";
+          const hostProvider = detectHostProvider();
+          const defaultBase = target1 === hostProvider ? hostProvider === "openai" ? "claude" : "openai" : hostProvider;
           models = [defaultBase, target1];
           userPrompt = parts.slice(1).join(" ").trim();
         }
@@ -3481,7 +3945,8 @@ ${pipedStdin}
         const rawCandidate = parts[0]?.toLowerCase() ?? "";
         const target = providerAliasMap[rawCandidate] || rawCandidate;
         if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
-          const defaultBase = target === "claude" ? "openai" : "claude";
+          const hostProvider = detectHostProvider();
+          const defaultBase = target === hostProvider ? hostProvider === "openai" ? "claude" : "openai" : hostProvider;
           models = [defaultBase, target];
           userPrompt = parts.slice(1).join(" ").trim();
         }

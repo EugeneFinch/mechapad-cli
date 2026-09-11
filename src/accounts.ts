@@ -104,12 +104,33 @@ export function detectConnectedAccounts(): AccountInfo[] {
 
   // 5. Grok (xAI)
   let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
+  let grokSource = "MegaPad Free Gateway";
+  let grokModel = "Grok 4.6 / Build";
+  const grokAuthPath = path.join(home, ".grok", "auth.json");
+
+  if (grokConnected) {
+    grokSource = "xAI API Key";
+  } else if (fs.existsSync(grokAuthPath)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(grokAuthPath, "utf-8"));
+      for (const v of Object.values(raw)) {
+        if (v && typeof v === "object" && (v.key || v.refresh_token)) {
+          grokConnected = true;
+          grokSource = v.email ? `Grok CLI (${v.email})` : "Grok CLI Active Session";
+          break;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   accounts.push({
     provider: "Grok (xAI)",
-    source: grokConnected ? "Active Session" : "MegaPad Free Gateway",
+    source: grokSource,
     status: "connected",
     statusText: grokConnected ? "✔ Active Session" : "⚡ Zero-Key Gateway",
-    activeModel: "Grok 3 Beta",
+    activeModel: grokModel,
   });
 
   // 6. Cursor IDE Integration

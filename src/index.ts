@@ -9,6 +9,70 @@ import { MultiModelEngine } from "./engine.js";
 import { runAgentInstaller } from "./installer.js";
 import { runScientificCliBenchmark } from "./cli-compare.js";
 import { detectConnectedAccounts, printAccountDashboard } from "./accounts.js";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+
+/**
+ * Detect which AI coding tool the user is running inside of.
+ * Returns the provider ID to use as the "home" model in duels.
+ *
+ * Detection order:
+ * 1. MEGAPAD_HOST env var (explicit override)
+ * 2. CODEX_CLI_SESSION / running inside Codex → "openai"
+ * 3. CLAUDE_CODE_SESSION / running inside Claude Code → "claude"
+ * 4. Active session file heuristics (~/.codex/auth.json, ~/.claude.json)
+ * 5. Default → "openai"
+ */
+function detectHostProvider(): string {
+  // Explicit override
+  const hostOverride = process.env.MEGAPAD_HOST?.toLowerCase();
+  if (hostOverride) {
+    const overrideMap: Record<string, string> = {
+      codex: "openai", chatgpt: "openai", openai: "openai",
+      claude: "claude", anthropic: "claude",
+      gemini: "gemini", google: "gemini",
+      deepseek: "deepseek",
+      grok: "grok", xai: "grok",
+    };
+    return overrideMap[hostOverride] || hostOverride;
+  }
+
+  // Codex CLI env markers
+  if (process.env.CODEX_CLI_SESSION || process.env.OPENAI_SESSION) {
+    return "openai";
+  }
+
+  // Claude Code env markers
+  if (process.env.CLAUDE_CODE_SESSION || process.env.ANTHROPIC_SESSION) {
+    return "claude";
+  }
+
+  // Heuristic: check for active session files
+  const home = homedir();
+  const hasCodexAuth = existsSync(join(home, ".codex", "auth.json"));
+  const hasClaudeConfig = existsSync(join(home, ".claude.json"));
+
+  // If both exist, check which parent process we're running under
+  if (hasCodexAuth && hasClaudeConfig) {
+    // Check parent process name for hints
+    const parentPid = process.ppid;
+    try {
+      const { execSync } = require("node:child_process");
+      const parentName = execSync(`ps -p ${parentPid} -o comm=`, { encoding: "utf8" }).trim().toLowerCase();
+      if (parentName.includes("codex") || parentName.includes("openai")) return "openai";
+      if (parentName.includes("claude")) return "claude";
+    } catch { /* ignore */ }
+    // Default to openai when both sessions exist
+    return "openai";
+  }
+
+  if (hasCodexAuth) return "openai";
+  if (hasClaudeConfig) return "claude";
+
+  // Ultimate fallback
+  return "openai";
+}
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
@@ -203,7 +267,9 @@ async function start() {
           models = [target1, target2];
           userPrompt = parts.slice(2).join(" ").trim();
         } else if (target1) {
-          const defaultBase = target1 === "claude" ? "openai" : "claude";
+          const hostProvider = detectHostProvider();
+          // If target is the same as host, pick a different challenger
+          const defaultBase = target1 === hostProvider ? (hostProvider === "openai" ? "claude" : "openai") : hostProvider;
           models = [defaultBase, target1];
           userPrompt = parts.slice(1).join(" ").trim();
         }
@@ -212,7 +278,8 @@ async function start() {
         const rawCandidate = parts[0]?.toLowerCase() ?? "";
         const target = providerAliasMap[rawCandidate] || rawCandidate;
         if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
-          const defaultBase = target === "claude" ? "openai" : "claude";
+          const hostProvider = detectHostProvider();
+          const defaultBase = target === hostProvider ? (hostProvider === "openai" ? "claude" : "openai") : hostProvider;
           models = [defaultBase, target];
           userPrompt = parts.slice(1).join(" ").trim();
         }
