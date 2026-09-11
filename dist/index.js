@@ -1395,8 +1395,12 @@ function createClaudeProvider(getKey) {
     name: "Claude (Anthropic)",
     mapEffort(level) {
       const models = {
-        fable: "claude-fable-5",
-        "claude-fable": "claude-fable-5",
+        fable: "claude-fable-5-1",
+        "fable-5.1": "claude-fable-5-1",
+        "fable-5-1": "claude-fable-5-1",
+        "claude-fable": "claude-fable-5-1",
+        "claude-fable-5-1": "claude-fable-5-1",
+        "claude-fable-5": "claude-fable-5-1",
         opus: "claude-opus-4-8",
         "claude-opus": "claude-opus-4-8",
         sonnet: "claude-sonnet-5",
@@ -1404,10 +1408,10 @@ function createClaudeProvider(getKey) {
         haiku: "claude-3-5-haiku",
         low: "claude-sonnet-5",
         medium: "claude-sonnet-5",
-        high: "claude-fable-5",
-        max: "claude-fable-5"
+        high: "claude-fable-5-1",
+        max: "claude-fable-5-1"
       };
-      return { model: models[level.toLowerCase()] ?? "claude-fable-5" };
+      return { model: models[level.toLowerCase()] ?? "claude-fable-5-1" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
@@ -1419,10 +1423,13 @@ function createClaudeProvider(getKey) {
         return;
       }
       const mapped = this.mapEffort?.(input.effort) ?? {};
-      const preferred = mapped.model ?? "claude-sonnet-5";
+      const preferred = mapped.model ?? "claude-fable-5-1";
       const candidates = [
         preferred,
+        "claude-fable-5-1",
+        "claude-fable-5.1",
         "claude-fable-5",
+        "claude-opus-4-8",
         "claude-sonnet-5",
         "claude-3-7-sonnet-20250219",
         "claude-3-5-sonnet-20241022"
