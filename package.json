@@ -5,7 +5,9 @@
   "type": "module",
   "bin": {
     "megapad": "./dist/index.js",
-    "megapad-mcp": "./dist/index.js"
+    "megapad-mcp": "./dist/index.js",
+    "pad": "./dist/index.js",
+    "mecha": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
