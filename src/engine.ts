@@ -26,7 +26,7 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     isSubscriptionOrFree: true,
   },
   deepseek: {
-    name: "DeepSeek V4.1 Flash / R1",
+    name: "DeepSeek V4.1 Flash",
     inputPer1M: 0.14,
     outputPer1M: 0.28,
   },
@@ -37,7 +37,7 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     isSubscriptionOrFree: true, // Free tier quota
   },
   grok: {
-    name: "Grok (xAI)",
+    name: "Grok 3 (xAI)",
     inputPer1M: 2.0,
     outputPer1M: 10.0,
   },

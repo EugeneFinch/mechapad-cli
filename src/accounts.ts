@@ -89,7 +89,7 @@ export function detectConnectedAccounts(): AccountInfo[] {
     source: deepseekSource,
     status: deepseekConnected ? "connected" : "missing",
     statusText: deepseekConnected ? "✔ Connected" : "✖ Set DEEPSEEK_API_KEY",
-    activeModel: "DeepSeek V4.1 Flash / R1",
+    activeModel: "DeepSeek V4.1 Flash",
   });
 
   // 4. Google Gemini

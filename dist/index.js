@@ -2280,14 +2280,14 @@ function createProviders() {
 // src/engine.ts
 var PROVIDER_PRICING = {
   claude: {
-    name: "Claude Fable 5.1",
-    inputPer1M: 3,
-    outputPer1M: 15
+    name: "Claude Fable 5.1 / Sonnet 5",
+    inputPer1M: 2,
+    outputPer1M: 10
   },
   openai: {
-    name: "OpenAI GPT-6 Astra",
-    inputPer1M: 2.5,
-    outputPer1M: 10
+    name: "GPT-6 Astra / Sol",
+    inputPer1M: 2,
+    outputPer1M: 8
   },
   chatgpt: {
     name: "ChatGPT Plus/Pro (Subscription)",
@@ -2308,7 +2308,7 @@ var PROVIDER_PRICING = {
     // Free tier quota
   },
   grok: {
-    name: "Grok (xAI)",
+    name: "Grok 3 (xAI)",
     inputPer1M: 2,
     outputPer1M: 10
   },
@@ -2851,7 +2851,7 @@ function detectConnectedAccounts() {
     source: deepseekSource,
     status: deepseekConnected ? "connected" : "missing",
     statusText: deepseekConnected ? "\u2714 Connected" : "\u2716 Set DEEPSEEK_API_KEY",
-    activeModel: "DeepSeek V4.1 Flash / R1"
+    activeModel: "DeepSeek V4.1 Flash"
   });
   let geminiConnected = false;
   let geminiSource = "Google AI Studio Free Tier (15 RPM)";
