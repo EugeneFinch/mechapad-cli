@@ -42,11 +42,29 @@ async function start() {
   }
 
   const isServeMcp = process.argv.includes("serve") || process.argv.includes("--mcp");
+  const isInteractiveTerminal = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const hasArgs = process.argv.length > 2;
+
+  // If run in terminal directly without args, show clean dashboard and instructions
+  if (!isServeMcp && isInteractiveTerminal && !hasArgs) {
+    console.log("\n⚡ \x1b[1m\x1b[36mMegaPad — Multi-Model AI Control Surface & Native MCP Server\x1b[0m\n");
+    console.log("Usage:");
+    console.log("  \x1b[1mpad \"<question>\"\x1b[0m          Run a multi-model parallel race & live telemetry");
+    console.log("  \x1b[1mpad review\x1b[0m                Run multi-model peer code review council");
+    console.log("  \x1b[1mpad status\x1b[0m                View connected accounts & subscriptions");
+    console.log("  \x1b[1mpad install\x1b[0m               1-click auto-configurator for Claude, Cursor, Codex\n");
+    console.log("Examples:");
+    console.log("  \x1b[90m$ pad \"How do I optimize this query?\"\x1b[0m");
+    console.log("  \x1b[90m$ git diff | pad review\x1b[0m\n");
+    printAccountDashboard();
+    process.exit(0);
+  }
+
   const isCompareCmd =
     process.argv.includes("compare") ||
     process.argv.includes("benchmark") ||
     process.argv.includes("review") ||
-    (!isServeMcp && process.argv.length > 2 && !process.argv[2].startsWith("-"));
+    (!isServeMcp && (hasArgs || !process.stdin.isTTY));
 
   // CLI Compare / Benchmark mode
   if (isCompareCmd) {
@@ -69,7 +87,17 @@ async function start() {
     }
 
     if (!userPrompt) {
-      userPrompt = "Write an optimized LRU cache in TypeScript and analyze time/space complexity.";
+      console.log("\n⚡ \x1b[1m\x1b[36mMegaPad — Multi-Model AI Control Surface & Native MCP Server\x1b[0m\n");
+      console.log("Usage:");
+      console.log("  \x1b[1mpad \"<question>\"\x1b[0m          Run a multi-model parallel race & live telemetry");
+      console.log("  \x1b[1mpad review\x1b[0m                Run multi-model peer code review council");
+      console.log("  \x1b[1mpad status\x1b[0m                View connected accounts & subscriptions");
+      console.log("  \x1b[1mpad install\x1b[0m               1-click auto-configurator for Claude, Cursor, Codex\n");
+      console.log("Examples:");
+      console.log("  \x1b[90m$ pad \"How do I optimize this query?\"\x1b[0m");
+      console.log("  \x1b[90m$ git diff | pad review\x1b[0m\n");
+      printAccountDashboard();
+      process.exit(0);
     }
 
     await runScientificCliBenchmark(userPrompt, models);
