@@ -41,6 +41,11 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     inputPer1M: 2.0,
     outputPer1M: 10.0,
   },
+  kimi: {
+    name: "Kimi K2.7 Code / TC (Moonshot)",
+    inputPer1M: 0.15,
+    outputPer1M: 0.35,
+  },
   mock: {
     name: "Mock Engine",
     inputPer1M: 0.0,
@@ -115,6 +120,14 @@ const MODEL_ALIAS_MAP: Record<string, ProviderId> = {
   build: "grok",
   "grok-build": "grok",
   xai: "grok",
+
+  kimi: "kimi",
+  "kimi-tc": "kimi",
+  "kimi:tc": "kimi",
+  tc: "kimi",
+  moonshot: "kimi",
+  k2: "kimi",
+  "k2.7": "kimi",
 
   mock: "mock",
 };

@@ -1322,12 +1322,18 @@ function createGrokSessionProvider() {
     mapEffort(level) {
       const models = {
         low: "grok-3-mini",
-        medium: "grok-3",
+        medium: "grok-4.6",
         high: "grok-4.6",
         max: "grok-4.6",
         grok4: "grok-4.6",
+        "4.6": "grok-4.6",
+        "grok-4.6": "grok-4.6",
         grok3: "grok-3",
-        build: "grok-build"
+        "3": "grok-3",
+        "3-mini": "grok-3-mini",
+        mini: "grok-3-mini",
+        build: "grok-build",
+        "grok-build": "grok-build"
       };
       return { model: models[level?.toLowerCase()] ?? DEFAULT_MODEL };
     },
@@ -1456,6 +1462,12 @@ var PERSONAS = {
     lab: "Google DeepMind",
     tone: "Fast, multi-modal synthesis, massive context, broad technical scope",
     signatureHeader: "Google Gemini 3.8 Flash"
+  },
+  kimi: {
+    name: "Kimi K2.7 Code / TC",
+    lab: "Moonshot AI",
+    tone: "Agentic, deep tool-calling (TC), high-throughput execution, long-context reasoning",
+    signatureHeader: "Moonshot AI Kimi K2.7 Tool Calling (TC) Engine"
   }
 };
 async function runZeroKeyFallback(providerId, input, onEvent) {
@@ -2426,13 +2438,21 @@ function createChatGptProvider() {
     id: "chatgpt",
     name: "ChatGPT",
     mapEffort(level) {
+      const clean = String(level || "").toLowerCase();
       const models = {
         low: DEFAULT_MODEL2,
         medium: DEFAULT_MODEL2,
-        high: DEFAULT_MODEL2,
-        max: DEFAULT_MODEL2
+        high: "gpt-5.6-sol",
+        max: "gpt-5.6-sol",
+        sol: "gpt-5.6-sol",
+        "gpt-5.6": "gpt-5.6-sol",
+        "gpt-5.6-sol": "gpt-5.6-sol",
+        astra: DEFAULT_MODEL2,
+        "gpt-6": DEFAULT_MODEL2,
+        "gpt-6-astra": DEFAULT_MODEL2,
+        "gpt-5.5": DEFAULT_MODEL2
       };
-      return { model: models[level] ?? DEFAULT_MODEL2 };
+      return { model: models[clean] ?? DEFAULT_MODEL2 };
     },
     async run(input, onEvent) {
       const tokens = await getValidChatGptTokens();
@@ -2765,6 +2785,60 @@ function createShellProvider(command = process.env.AGENTPAD_SHELL_CMD ?? "echo")
   };
 }
 
+// ../daemon/dist/providers/kimi.js
+var BASE5 = "https://api.moonshot.cn/v1";
+function createKimiProvider(getKey) {
+  return {
+    id: "kimi",
+    name: "Kimi (Moonshot)",
+    mapEffort(level) {
+      const models = {
+        low: "moonshot-v1-8k",
+        medium: "moonshot-v1-32k",
+        high: "moonshot-v1-128k",
+        max: "kimi-k2.7-code",
+        tc: "kimi-k2.7-code",
+        code: "kimi-k2.7-code",
+        "k2.7": "kimi-k2.7-code",
+        k2: "kimi-k2.5",
+        k3: "kimi-k3"
+      };
+      return { model: models[level.toLowerCase()] ?? "moonshot-v1-auto" };
+    },
+    async run(input, onEvent) {
+      const apiKey = getKey(input.slot);
+      if (!apiKey) {
+        await runZeroKeyFallback("kimi", input, onEvent);
+        return;
+      }
+      const mapped = this.mapEffort?.(input.effort) ?? {};
+      const model = mapped.model ?? "moonshot-v1-auto";
+      try {
+        await runOpenAiToolsLoop({
+          baseUrl: BASE5,
+          apiKey,
+          model,
+          system: input.system || "You are MegaPad running Kimi TC. Execute high-throughput tool calling and code reasoning.",
+          user: input.prompt,
+          temperature: input.effort === "low" ? 0.2 : 0.4,
+          signal: input.signal,
+          onEvent,
+          label: "kimi",
+          history: input.history,
+          toolsMode: input.toolsMode
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.toLowerCase().includes("abort")) {
+          onEvent({ state: "idle", detail: "cancelled" });
+          return;
+        }
+        await runZeroKeyFallback("kimi", input, onEvent);
+      }
+    }
+  };
+}
+
 // ../daemon/dist/secrets.js
 import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync5, chmodSync as chmodSync3 } from "node:fs";
 import { homedir as homedir5 } from "node:os";
@@ -3039,6 +3113,7 @@ function createProviders() {
   map.set("gemini", createGeminiProvider(key("GEMINI_API_KEY")));
   map.set("claude", createClaudeProvider(key("ANTHROPIC_API_KEY")));
   map.set("deepseek", createDeepSeekProvider(key("DEEPSEEK_API_KEY")));
+  map.set("kimi", createKimiProvider(key("KIMI_API_KEY")));
   map.set("shell", createShellProvider());
   return map;
 }
@@ -3077,6 +3152,11 @@ var PROVIDER_PRICING = {
     name: "Grok 3 (xAI)",
     inputPer1M: 2,
     outputPer1M: 10
+  },
+  kimi: {
+    name: "Kimi K2.7 Code / TC (Moonshot)",
+    inputPer1M: 0.15,
+    outputPer1M: 0.35
   },
   mock: {
     name: "Mock Engine",
@@ -3122,6 +3202,13 @@ var MODEL_ALIAS_MAP = {
   build: "grok",
   "grok-build": "grok",
   xai: "grok",
+  kimi: "kimi",
+  "kimi-tc": "kimi",
+  "kimi:tc": "kimi",
+  tc: "kimi",
+  moonshot: "kimi",
+  k2: "kimi",
+  "k2.7": "kimi",
   mock: "mock"
 };
 var MultiModelEngine = class {
@@ -3929,7 +4016,12 @@ ${pipedStdin}
       // Grok tiers
       grok: "grok",
       grok3: "grok",
-      xai: "grok"
+      xai: "grok",
+      // Kimi / Moonshot tiers
+      kimi: "kimi",
+      "kimi-tc": "kimi",
+      tc: "kimi",
+      moonshot: "kimi"
     };
     const knownProviders = [
       "grok",
@@ -3945,6 +4037,8 @@ ${pipedStdin}
       "astra",
       "r1",
       "flash",
+      "kimi",
+      "tc",
       "mock"
     ];
     if (!models) {
@@ -3967,7 +4061,8 @@ ${pipedStdin}
           grok: ["4.6", "grok-4.6", "build", "grok-build", "3", "grok-3", "3-mini", "grok-3-mini", "mini"],
           claude: ["fable", "claude-5", "sonnet", "opus", "haiku"],
           deepseek: ["r1", "reasoner", "v4", "v4.1", "chat"],
-          gemini: ["flash", "3.8", "cyber", "pro"]
+          gemini: ["flash", "3.8", "cyber", "pro"],
+          kimi: ["tc", "k2.7", "k2", "code", "k3"]
         };
         const tierToProvider = {
           astra: { provider: "openai", tier: "astra" },
@@ -3995,7 +4090,11 @@ ${pipedStdin}
           r1: { provider: "deepseek", tier: "r1" },
           "deepseek-r1": { provider: "deepseek", tier: "r1" },
           reasoner: { provider: "deepseek", tier: "r1" },
-          flash: { provider: "gemini", tier: "flash" }
+          flash: { provider: "gemini", tier: "flash" },
+          tc: { provider: "kimi", tier: "tc" },
+          "kimi-tc": { provider: "kimi", tier: "tc" },
+          "k2.7": { provider: "kimi", tier: "tc" },
+          kimi: { provider: "kimi", tier: "tc" }
         };
         const parseTargetSpec = (tokens) => {
           if (!tokens.length) return null;
