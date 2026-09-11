@@ -1835,181 +1835,30 @@ function createDeepSeekProvider(getKey) {
   };
 }
 
-// ../daemon/dist/providers/openai.js
-var BASE4 = "https://api.openai.com/v1";
-function createOpenAIProvider(getKey) {
-  return {
-    id: "openai",
-    name: "OpenAI",
-    mapEffort(level) {
-      const models = {
-        astra: "gpt-6-astra",
-        "gpt-6": "gpt-6-astra",
-        gpt6: "gpt-6-astra",
-        sol: "gpt-5.6-sol",
-        "gpt-5.6": "gpt-5.6-sol",
-        codex: "codex-5.5",
-        o3: "o3",
-        o4: "o4",
-        low: "gpt-4o-mini",
-        medium: "gpt-4o",
-        high: "gpt-5.6-sol",
-        max: "gpt-6-astra"
-      };
-      return { model: models[level.toLowerCase()] ?? "gpt-6-astra" };
-    },
-    async run(input, onEvent) {
-      const apiKey = getKey(input.slot);
-      if (!apiKey) {
-        await runZeroKeyFallback("openai", input, onEvent);
-        return;
-      }
-      const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? "gpt-4o";
-      try {
-        await runOpenAiToolsLoop({
-          baseUrl: BASE4,
-          apiKey,
-          model,
-          system: input.system || "You are an AgentPad coding agent. Answer clearly. Use tools only when needed.",
-          user: input.prompt,
-          temperature: input.effort === "low" ? 0.2 : 0.35,
-          signal: input.signal,
-          onEvent,
-          label: "openai",
-          history: input.history,
-          toolsMode: input.toolsMode
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.toLowerCase().includes("abort")) {
-          onEvent({ state: "idle", detail: "cancelled" });
-          return;
-        }
-        await runZeroKeyFallback("openai", input, onEvent);
-      }
-    }
-  };
-}
-
-// ../daemon/dist/cloud-client.js
+// ../daemon/dist/chatgpt-oauth.js
 import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, writeFileSync as writeFileSync2, chmodSync } from "node:fs";
 import { homedir as homedir2 } from "node:os";
 import { dirname as dirname4, join as join4, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-function cloudConfigPath() {
-  const here = dirname4(fileURLToPath3(import.meta.url));
-  const projectRoot2 = resolve4(here, "../../..");
-  const project = join4(projectRoot2, ".agentpad", "cloud.json");
-  if (existsSync4(join4(projectRoot2, "package.json")))
-    return project;
-  return join4(homedir2(), ".agentpad", "cloud.json");
-}
-function readFile() {
-  try {
-    const path3 = cloudConfigPath();
-    if (!existsSync4(path3))
-      return { version: 1 };
-    return JSON.parse(readFileSync4(path3, "utf8"));
-  } catch {
-    return { version: 1 };
-  }
-}
-function getCloudBaseUrl() {
-  const env = process.env.MECHAPAD_CLOUD_URL?.trim();
-  if (env)
-    return env.replace(/\/$/, "");
-  const file = readFile();
-  if (file.baseUrl?.trim())
-    return file.baseUrl.trim().replace(/\/$/, "");
-  return "https://api.mechapad.com";
-}
-function getCloudSessionToken() {
-  const env = process.env.MECHAPAD_SESSION_TOKEN?.trim();
-  if (env)
-    return env;
-  return readFile().sessionToken?.trim() || void 0;
-}
-function cloudConfigured() {
-  return Boolean(getCloudSessionToken());
-}
-
-// ../daemon/dist/providers/mechapad.js
-function createMegaPadProvider() {
-  return {
-    id: "mechapad",
-    name: "MegaPad AI",
-    mapEffort(level) {
-      const models = {
-        low: "mechapad-fast",
-        medium: "mechapad-fast",
-        high: "mechapad-smart",
-        max: "mechapad-smart"
-      };
-      return { model: models[level] ?? "mechapad-fast" };
-    },
-    async run(input, onEvent) {
-      if (!cloudConfigured()) {
-        onEvent({
-          state: "error",
-          detail: "Sign in free under Plans (Google) \u2014 or subscribe from $10/mo"
-        });
-        return;
-      }
-      const token = getCloudSessionToken();
-      const base = getCloudBaseUrl();
-      const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? "mechapad-fast";
-      try {
-        await runOpenAiToolsLoop({
-          baseUrl: `${base}/v1`,
-          apiKey: token,
-          model,
-          system: input.system || "You are MegaPad (hosted). Answer clearly. Use tools only when needed.",
-          user: input.prompt,
-          temperature: input.effort === "low" ? 0.2 : 0.35,
-          signal: input.signal,
-          onEvent,
-          label: "mechapad",
-          history: input.history,
-          toolsMode: input.toolsMode
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.toLowerCase().includes("abort")) {
-          onEvent({ state: "idle", detail: "cancelled" });
-          return;
-        }
-        onEvent({ state: "error", detail: msg.slice(0, 160) });
-      }
-    }
-  };
-}
-
-// ../daemon/dist/chatgpt-oauth.js
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3, chmodSync as chmodSync2 } from "node:fs";
-import { homedir as homedir3 } from "node:os";
-import { dirname as dirname5, join as join5, resolve as resolve5 } from "node:path";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
 var TOKEN_URL = "https://auth.openai.com/oauth/token";
 var CHATGPT_WHAM_BASE = "https://chatgpt.com/backend-api/wham";
 var CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 var REDIRECT_PORT = 1455;
 var REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/auth/callback`;
 function storePath() {
-  const here = dirname5(fileURLToPath4(import.meta.url));
-  const projectRoot2 = resolve5(here, "../../..");
-  const project = join5(projectRoot2, ".agentpad", "chatgpt-oauth.json");
-  if (existsSync5(join5(projectRoot2, "package.json")))
+  const here = dirname4(fileURLToPath3(import.meta.url));
+  const projectRoot2 = resolve4(here, "../../..");
+  const project = join4(projectRoot2, ".agentpad", "chatgpt-oauth.json");
+  if (existsSync4(join4(projectRoot2, "package.json")))
     return project;
-  return join5(homedir3(), ".agentpad", "chatgpt-oauth.json");
+  return join4(homedir2(), ".agentpad", "chatgpt-oauth.json");
 }
 function readStore() {
   try {
     const p = storePath();
-    if (!existsSync5(p))
+    if (!existsSync4(p))
       return { version: 1, tokens: null };
-    return JSON.parse(readFileSync5(p, "utf8"));
+    return JSON.parse(readFileSync4(p, "utf8"));
   } catch {
     return { version: 1, tokens: null };
   }
@@ -2017,16 +1866,16 @@ function readStore() {
 function persistStore(patch) {
   const prev = readStore();
   const p = storePath();
-  mkdirSync3(dirname5(p), { recursive: true });
+  mkdirSync2(dirname4(p), { recursive: true });
   const payload = {
     version: 1,
     tokens: patch.tokens !== void 0 ? patch.tokens : prev.tokens,
     ignoreCodex: patch.ignoreCodex !== void 0 ? patch.ignoreCodex : prev.ignoreCodex,
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  writeFileSync3(p, JSON.stringify(payload, null, 2) + "\n", { mode: 384 });
+  writeFileSync2(p, JSON.stringify(payload, null, 2) + "\n", { mode: 384 });
   try {
-    chmodSync2(p, 384);
+    chmodSync(p, 384);
   } catch {
   }
 }
@@ -2094,6 +1943,28 @@ function tokensFromOauthResponse(raw, fallbackAccountId) {
     expiresAt: Date.now() + expiresIn * 1e3
   };
 }
+function importFromCodexAuth() {
+  const p = join4(homedir2(), ".codex", "auth.json");
+  if (!existsSync4(p))
+    return null;
+  try {
+    const raw = JSON.parse(readFileSync4(p, "utf8"));
+    const t = raw.tokens;
+    if (!t?.access_token || !t.refresh_token)
+      return null;
+    return {
+      accessToken: t.access_token,
+      refreshToken: t.refresh_token,
+      idToken: t.id_token,
+      accountId: t.account_id || extractAccountId(t.id_token, t.access_token),
+      email: extractEmail(t.id_token, t.access_token),
+      expiresAt: Date.now() + 6e4
+      // force refresh soon
+    };
+  } catch {
+    return null;
+  }
+}
 async function refreshTokens(tokens) {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -2120,14 +1991,24 @@ async function refreshTokens(tokens) {
 }
 async function getValidChatGptTokens() {
   let tokens = readStore().tokens;
+  if (!tokens?.accessToken) {
+    const imported = importFromCodexAuth();
+    if (imported?.refreshToken) {
+      try {
+        tokens = await refreshTokens(imported);
+      } catch {
+        tokens = imported;
+      }
+    }
+  }
   if (!tokens?.accessToken)
     return null;
   const skew = 6e4;
-  if (Date.now() > tokens.expiresAt - skew) {
+  if (Date.now() > tokens.expiresAt - skew && tokens.refreshToken) {
     try {
       tokens = await refreshTokens(tokens);
     } catch {
-      return null;
+      return tokens;
     }
   }
   return tokens;
@@ -2248,6 +2129,170 @@ function createChatGptProvider() {
           return;
         }
         onEvent({ state: "error", detail: msg.slice(0, 140) });
+      }
+    }
+  };
+}
+
+// ../daemon/dist/providers/openai.js
+var BASE4 = "https://api.openai.com/v1";
+function createOpenAIProvider(getKey) {
+  const chatGptProvider = createChatGptProvider();
+  return {
+    id: "openai",
+    name: "OpenAI",
+    mapEffort(level) {
+      const models = {
+        astra: "gpt-6-astra",
+        "gpt-6": "gpt-6-astra",
+        gpt6: "gpt-6-astra",
+        sol: "gpt-5.6-sol",
+        "gpt-5.6": "gpt-5.6-sol",
+        codex: "codex-5.5",
+        o3: "o3",
+        o4: "o4",
+        low: "gpt-4o-mini",
+        medium: "gpt-4o",
+        high: "gpt-5.6-sol",
+        max: "gpt-6-astra"
+      };
+      return { model: models[level.toLowerCase()] ?? "gpt-6-astra" };
+    },
+    async run(input, onEvent) {
+      const apiKey = getKey(input.slot);
+      if (apiKey) {
+        const mapped = this.mapEffort?.(input.effort) ?? {};
+        const model = mapped.model ?? "gpt-4o";
+        try {
+          await runOpenAiToolsLoop({
+            baseUrl: BASE4,
+            apiKey,
+            model,
+            system: input.system || "You are an AgentPad coding agent. Answer clearly. Use tools only when needed.",
+            user: input.prompt,
+            temperature: input.effort === "low" ? 0.2 : 0.35,
+            signal: input.signal,
+            onEvent,
+            label: "openai",
+            history: input.history,
+            toolsMode: input.toolsMode
+          });
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.toLowerCase().includes("abort")) {
+            onEvent({ state: "idle", detail: "cancelled" });
+            return;
+          }
+        }
+      }
+      const chatGptTokens = await getValidChatGptTokens();
+      if (chatGptTokens?.accessToken) {
+        let chatGptSucceeded = false;
+        await chatGptProvider.run(input, (ev) => {
+          if (ev.state === "done" && ev.text) {
+            chatGptSucceeded = true;
+          }
+          onEvent(ev);
+        });
+        if (chatGptSucceeded) {
+          return;
+        }
+      }
+      await runZeroKeyFallback("openai", input, onEvent);
+    }
+  };
+}
+
+// ../daemon/dist/cloud-client.js
+import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3, chmodSync as chmodSync2 } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { dirname as dirname5, join as join5, resolve as resolve5 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
+function cloudConfigPath() {
+  const here = dirname5(fileURLToPath4(import.meta.url));
+  const projectRoot2 = resolve5(here, "../../..");
+  const project = join5(projectRoot2, ".agentpad", "cloud.json");
+  if (existsSync5(join5(projectRoot2, "package.json")))
+    return project;
+  return join5(homedir3(), ".agentpad", "cloud.json");
+}
+function readFile() {
+  try {
+    const path3 = cloudConfigPath();
+    if (!existsSync5(path3))
+      return { version: 1 };
+    return JSON.parse(readFileSync5(path3, "utf8"));
+  } catch {
+    return { version: 1 };
+  }
+}
+function getCloudBaseUrl() {
+  const env = process.env.MECHAPAD_CLOUD_URL?.trim();
+  if (env)
+    return env.replace(/\/$/, "");
+  const file = readFile();
+  if (file.baseUrl?.trim())
+    return file.baseUrl.trim().replace(/\/$/, "");
+  return "https://api.mechapad.com";
+}
+function getCloudSessionToken() {
+  const env = process.env.MECHAPAD_SESSION_TOKEN?.trim();
+  if (env)
+    return env;
+  return readFile().sessionToken?.trim() || void 0;
+}
+function cloudConfigured() {
+  return Boolean(getCloudSessionToken());
+}
+
+// ../daemon/dist/providers/mechapad.js
+function createMegaPadProvider() {
+  return {
+    id: "mechapad",
+    name: "MegaPad AI",
+    mapEffort(level) {
+      const models = {
+        low: "mechapad-fast",
+        medium: "mechapad-fast",
+        high: "mechapad-smart",
+        max: "mechapad-smart"
+      };
+      return { model: models[level] ?? "mechapad-fast" };
+    },
+    async run(input, onEvent) {
+      if (!cloudConfigured()) {
+        onEvent({
+          state: "error",
+          detail: "Sign in free under Plans (Google) \u2014 or subscribe from $10/mo"
+        });
+        return;
+      }
+      const token = getCloudSessionToken();
+      const base = getCloudBaseUrl();
+      const mapped = this.mapEffort?.(input.effort) ?? {};
+      const model = mapped.model ?? "mechapad-fast";
+      try {
+        await runOpenAiToolsLoop({
+          baseUrl: `${base}/v1`,
+          apiKey: token,
+          model,
+          system: input.system || "You are MegaPad (hosted). Answer clearly. Use tools only when needed.",
+          user: input.prompt,
+          temperature: input.effort === "low" ? 0.2 : 0.35,
+          signal: input.signal,
+          onEvent,
+          label: "mechapad",
+          history: input.history,
+          toolsMode: input.toolsMode
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.toLowerCase().includes("abort")) {
+          onEvent({ state: "idle", detail: "cancelled" });
+          return;
+        }
+        onEvent({ state: "error", detail: msg.slice(0, 160) });
       }
     }
   };
