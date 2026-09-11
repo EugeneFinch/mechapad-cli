@@ -10,14 +10,14 @@ export interface ProviderPricing {
 
 export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
   claude: {
-    name: "Claude 3.7 Sonnet",
-    inputPer1M: 3.0,
-    outputPer1M: 15.0,
+    name: "Claude Fable 5.1 / Sonnet 5",
+    inputPer1M: 2.0,
+    outputPer1M: 10.0,
   },
   openai: {
-    name: "OpenAI GPT-4o",
-    inputPer1M: 2.5,
-    outputPer1M: 10.0,
+    name: "GPT-6 Astra / Sol",
+    inputPer1M: 2.0,
+    outputPer1M: 8.0,
   },
   chatgpt: {
     name: "ChatGPT Plus/Pro (Subscription)",
@@ -26,12 +26,12 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     isSubscriptionOrFree: true,
   },
   deepseek: {
-    name: "DeepSeek R1 / V3",
+    name: "DeepSeek V4.1 Flash / R1",
     inputPer1M: 0.14,
     outputPer1M: 0.28,
   },
   gemini: {
-    name: "Gemini 2.5 Flash",
+    name: "Gemini 3.8 Flash",
     inputPer1M: 0.075,
     outputPer1M: 0.3,
     isSubscriptionOrFree: true, // Free tier quota

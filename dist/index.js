@@ -1258,37 +1258,31 @@ function createGeminiProvider(getKey) {
     mapEffort(level) {
       const models = {
         low: "gemini-2.5-flash-lite",
-        medium: "gemini-2.5-flash",
-        high: "gemini-2.5-flash",
-        max: "gemini-2.5-pro"
+        medium: "gemini-3.8-flash",
+        high: "gemini-3.8-flash",
+        max: "gemini-3.8-flash"
       };
-      return { model: models[level] ?? "gemini-2.5-flash" };
+      return { model: models[level] ?? "gemini-3.8-flash" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
       if (!apiKey) {
         onEvent({
           state: "error",
-          detail: "GEMINI_API_KEY not set \u2014 press k, paste key, Enter (not into chat)"
+          detail: "GEMINI_API_KEY not set \u2014 paste key from https://aistudio.google.com/apikey"
         });
         return;
       }
-      if (!looksLikeGeminiKey(apiKey)) {
-        onEvent({
-          state: "error",
-          detail: "Key format looks unusual \u2014 use an API key from https://aistudio.google.com/apikey (often starts with AIza\u2026)"
-        });
-      }
       const mapped = this.mapEffort?.(input.effort) ?? {};
-      const preferred = mapped.model ?? "gemini-2.5-flash";
+      const preferred = mapped.model ?? "gemini-3.8-flash";
       const candidates = [
         preferred,
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-flash-latest",
+        "gemini-2.5-pro",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-2.5-pro"
+        "gemini-flash-latest"
       ].filter((m, i, a) => a.indexOf(m) === i);
       onEvent({ state: "thinking", detail: `gemini \xB7 ${preferred}` });
       const failures = [];
@@ -1374,19 +1368,16 @@ async function callGemini(apiKey, model, prompt, effort, signal, system) {
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("").trim() || "(no content)";
   return { ok: true, text };
 }
-function looksLikeGeminiKey(key) {
-  return /^(AIza|AQ\.)/.test(key.trim());
-}
 function summarizeGeminiError(raw, failures = []) {
   const tried = failures.map((f) => f.split(":")[0]).filter(Boolean).join(", ");
   if (/limit:\s*0/i.test(raw) && /free_tier/i.test(raw)) {
-    return `Gemini free-tier for that model is 0 (not necessarily your whole account). Tried: ${tried || "models"}. Open https://aistudio.google.com/ \u2192 pick a model with quota, or enable billing. AgentPad now prefers gemini-2.5-flash.`.slice(0, 280);
+    return `Gemini free-tier for that model is 0. Tried: ${tried || "models"}. Open https://aistudio.google.com/ \u2192 pick a model with quota.`.slice(0, 280);
   }
   if (/quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(raw)) {
-    return (`Gemini rate/quota on some models (Google 429). Tried: ${tried || "?"}. Check https://ai.dev/rate-limit \u2014 free tier is per-model. Wait or enable billing. ` + raw.replace(/\s+/g, " ").slice(0, 100)).slice(0, 280);
+    return `Gemini rate/quota (Google 429). Tried: ${tried || "?"}. Check https://ai.dev/rate-limit \u2014 free tier is per-model.`.slice(0, 280);
   }
   if (/API_KEY_INVALID|invalid api key/i.test(raw)) {
-    return "Invalid GEMINI_API_KEY \u2014 press k, paste a key from https://aistudio.google.com/apikey (do not paste the key into chat)";
+    return "Invalid GEMINI_API_KEY \u2014 paste a key from https://aistudio.google.com/apikey";
   }
   if (/PERMISSION_DENIED/i.test(raw)) {
     return "Gemini PERMISSION_DENIED \u2014 enable Generative Language API for this key\u2019s Google Cloud project";
@@ -1402,12 +1393,12 @@ function createClaudeProvider(getKey) {
     name: "Claude (Anthropic)",
     mapEffort(level) {
       const models = {
-        low: "claude-3-5-haiku-latest",
-        medium: "claude-sonnet-4-20250514",
-        high: "claude-sonnet-4-20250514",
-        max: "claude-opus-4-20250514"
+        low: "claude-sonnet-5",
+        medium: "claude-sonnet-5",
+        high: "claude-fable-5",
+        max: "claude-fable-5"
       };
-      return { model: models[level] ?? "claude-sonnet-4-20250514" };
+      return { model: models[level] ?? "claude-sonnet-5" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
@@ -1419,47 +1410,63 @@ function createClaudeProvider(getKey) {
         return;
       }
       const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? "claude-sonnet-4-20250514";
-      onEvent({ state: "thinking", detail: `claude \xB7 ${model}` });
-      try {
-        const res = await fetch(BASE2, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: 4096,
-            system: input.system || "You are an AgentPad coding agent. No fluff. Do the work.",
-            messages: [{ role: "user", content: input.prompt }],
-            temperature: input.effort === "low" ? 0.3 : 0.7
-          }),
-          signal: input.signal
-        });
-        if (!res.ok) {
-          const body = await res.text().catch(() => "");
+      const preferred = mapped.model ?? "claude-sonnet-5";
+      const candidates = [
+        preferred,
+        "claude-fable-5",
+        "claude-sonnet-5",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-sonnet-20241022"
+      ].filter((m, i, a) => a.indexOf(m) === i);
+      const system = input.system || "You are an AgentPad coding agent. Be concise and practical.";
+      onEvent({ state: "thinking", detail: `claude \xB7 ${preferred}` });
+      for (const model of candidates) {
+        try {
+          const res = await fetch(BASE2, {
+            method: "POST",
+            headers: {
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json"
+            },
+            body: JSON.stringify({
+              model,
+              max_tokens: 8192,
+              system,
+              messages: [{ role: "user", content: input.prompt }]
+            }),
+            signal: input.signal
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            if (res.status === 404 || /not_found/i.test(body)) {
+              continue;
+            }
+            onEvent({
+              state: "error",
+              detail: `HTTP ${res.status}: ${body.slice(0, 100)}`
+            });
+            return;
+          }
+          const data = await res.json();
+          const text = data.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim() || "(no content)";
           onEvent({
-            state: "error",
-            detail: `HTTP ${res.status}: ${body.slice(0, 100)}`
+            state: "done",
+            detail: text.slice(0, 64) + (text.length > 64 ? "\u2026" : ""),
+            text
           });
           return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.toLowerCase().includes("abort")) {
+            onEvent({ state: "idle", detail: "cancelled" });
+            return;
+          }
+          if (model === candidates[candidates.length - 1]) {
+            onEvent({ state: "error", detail: msg.slice(0, 80) });
+            return;
+          }
         }
-        const data = await res.json();
-        const text = data.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim() || "(no content)";
-        onEvent({
-          state: "done",
-          detail: text.slice(0, 64) + (text.length > 64 ? "\u2026" : ""),
-          text
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.toLowerCase().includes("abort")) {
-          onEvent({ state: "idle", detail: "cancelled" });
-          return;
-        }
-        onEvent({ state: "error", detail: msg.slice(0, 80) });
       }
     }
   };
@@ -1525,12 +1532,12 @@ function createOpenAIProvider(getKey) {
     name: "OpenAI",
     mapEffort(level) {
       const models = {
-        low: "gpt-4.1-mini",
-        medium: "gpt-4.1-mini",
-        high: "gpt-4.1",
-        max: "gpt-4.1"
+        low: "gpt-4o-mini",
+        medium: "gpt-4o",
+        high: "gpt-5.6-sol",
+        max: "gpt-6-astra"
       };
-      return { model: models[level] ?? "gpt-4.1-mini" };
+      return { model: models[level] ?? "gpt-5.6-sol" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
@@ -1542,13 +1549,13 @@ function createOpenAIProvider(getKey) {
         return;
       }
       const mapped = this.mapEffort?.(input.effort) ?? {};
-      const model = mapped.model ?? "gpt-4.1-mini";
+      const model = mapped.model ?? "gpt-4o";
       try {
         await runOpenAiToolsLoop({
           baseUrl: BASE4,
           apiKey,
           model,
-          system: input.system || "You are MegaPad. Answer clearly. Use tools only when needed.",
+          system: input.system || "You are an AgentPad coding agent. Answer clearly. Use tools only when needed.",
           user: input.prompt,
           temperature: input.effort === "low" ? 0.2 : 0.35,
           signal: input.signal,
@@ -2026,13 +2033,17 @@ var SECRET_META = [
   }
 ];
 function secretsPath() {
-  const here = dirname6(fileURLToPath5(import.meta.url));
-  const projectRoot2 = resolve6(here, "../../..");
-  const project = join6(projectRoot2, ".agentpad", "secrets.json");
-  const home = join6(homedir4(), ".agentpad", "secrets.json");
-  if (existsSync6(join6(projectRoot2, "package.json")))
-    return project;
-  return home;
+  try {
+    const here = dirname6(fileURLToPath5(import.meta.url));
+    const projectRoot2 = resolve6(here, "../../..");
+    const project = join6(projectRoot2, ".agentpad", "secrets.json");
+    const home = join6(homedir4(), ".agentpad", "secrets.json");
+    if (existsSync6(join6(projectRoot2, "package.json")))
+      return project;
+    return home;
+  } catch {
+    return join6(homedir4(), ".agentpad", "secrets.json");
+  }
 }
 function mask(key) {
   const t = key.trim();
@@ -2062,14 +2073,21 @@ var SecretsStore = class {
   }
   reload() {
     try {
-      if (!existsSync6(this.file)) {
-        this.keys = {};
-        this.agents = {};
-        return;
+      if (existsSync6(this.file)) {
+        const raw = JSON.parse(readFileSync6(this.file, "utf8"));
+        this.keys = raw.keys ?? {};
+        this.agents = raw.agents ?? {};
       }
-      const raw = JSON.parse(readFileSync6(this.file, "utf8"));
-      this.keys = raw.keys ?? {};
-      this.agents = raw.agents ?? {};
+      const homeFile = join6(homedir4(), ".agentpad", "secrets.json");
+      if (homeFile !== this.file && existsSync6(homeFile)) {
+        try {
+          const homeRaw = JSON.parse(readFileSync6(homeFile, "utf8"));
+          if (homeRaw.keys) {
+            this.keys = { ...homeRaw.keys, ...this.keys };
+          }
+        } catch {
+        }
+      }
     } catch {
       this.keys = {};
       this.agents = {};
@@ -2101,10 +2119,6 @@ var SecretsStore = class {
     } catch {
     }
   }
-  /**
-   * Resolve key for a provider call.
-   * Order: agent override → global file → process.env → env fallbacks.
-   */
   get(id, slot) {
     if (slot !== void 0 && slot !== null) {
       const agentVal = this.agents[String(slot)]?.[id]?.trim();
@@ -2123,23 +2137,27 @@ var SecretsStore = class {
       if (v)
         return v;
     }
-    return void 0;
-  }
-  /** Global key only (no agent override). */
-  getGlobal(id) {
-    const fromFile = this.keys[id]?.trim();
-    if (fromFile)
-      return fromFile;
-    const fromEnv = process.env[id]?.trim();
-    if (fromEnv)
-      return fromEnv;
-    const meta = SECRET_META.find((m) => m.id === id);
-    for (const alt of meta?.envFallback ?? []) {
-      const v = process.env[alt]?.trim();
-      if (v)
-        return v;
+    const envPaths = [
+      join6(process.cwd(), ".env"),
+      join6(homedir4(), ".env"),
+      join6(homedir4(), ".agentpad", ".env")
+    ];
+    for (const ep of envPaths) {
+      if (existsSync6(ep)) {
+        try {
+          const content = readFileSync6(ep, "utf8");
+          const match = content.match(new RegExp(`^\\s*${id}\\s*=\\s*["']?([^"'\\r\\n]+)["']?`, "m"));
+          if (match && match[1]) {
+            return match[1].trim();
+          }
+        } catch {
+        }
+      }
     }
     return void 0;
+  }
+  getGlobal(id) {
+    return this.get(id);
   }
   setGlobal(id, value) {
     if (value === null || !value.trim() || isMaskPlaceholder(value)) {
@@ -2167,7 +2185,6 @@ var SecretsStore = class {
     }
     this.persist();
   }
-  /** Apply global key updates. Empty string clears. */
   updateGlobal(patch) {
     for (const [k, v] of Object.entries(patch)) {
       if (v === void 0)
@@ -2177,7 +2194,6 @@ var SecretsStore = class {
       this.setGlobal(k, v.trim() === "" ? null : v);
     }
   }
-  /** Apply per-agent updates: { "0": { GEMINI_API_KEY: "..." } } */
   updateAgents(patch) {
     for (const [slotStr, map] of Object.entries(patch)) {
       const slot = Number(slotStr);
@@ -2228,7 +2244,6 @@ var SecretsStore = class {
       };
     });
   }
-  /** Snapshot of all agent overrides (masked). */
   statusAllAgents(slotCount = 6) {
     return Array.from({ length: slotCount }, (_, slot) => ({
       slot,
@@ -2265,12 +2280,12 @@ function createProviders() {
 // src/engine.ts
 var PROVIDER_PRICING = {
   claude: {
-    name: "Claude 3.7 Sonnet",
+    name: "Claude Fable 5.1",
     inputPer1M: 3,
     outputPer1M: 15
   },
   openai: {
-    name: "OpenAI GPT-4o",
+    name: "OpenAI GPT-6 Astra",
     inputPer1M: 2.5,
     outputPer1M: 10
   },
@@ -2281,12 +2296,12 @@ var PROVIDER_PRICING = {
     isSubscriptionOrFree: true
   },
   deepseek: {
-    name: "DeepSeek R1 / V3",
+    name: "DeepSeek V4.1 Flash",
     inputPer1M: 0.14,
     outputPer1M: 0.28
   },
   gemini: {
-    name: "Gemini 2.5 Flash",
+    name: "Gemini 3.8 Flash",
     inputPer1M: 0.075,
     outputPer1M: 0.3,
     isSubscriptionOrFree: true

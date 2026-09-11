@@ -1,0 +1,1 @@
+{"version":3,"file":"installer.d.ts","sourceRoot":"","sources":["../src/installer.ts"],"names":[],"mappings":"AAIA,UAAU,aAAa;IACrB,MAAM,EAAE,MAAM,CAAC;IACf,MAAM,EAAE,WAAW,GAAG,SAAS,GAAG,oBAAoB,GAAG,SAAS,CAAC;IACnE,IAAI,EAAE,MAAM,CAAC;IACb,KAAK,CAAC,EAAE,MAAM,CAAC;CAChB;AAED,wBAAsB,iBAAiB,IAAI,OAAO,CAAC,aAAa,EAAE,CAAC,CAwMlE"}
