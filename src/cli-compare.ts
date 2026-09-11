@@ -1,5 +1,6 @@
 import { MultiModelEngine, PROVIDER_PRICING, ModelResult } from "./engine.js";
 import type { ProviderId } from "@agentpad/protocol";
+import { runInteractiveActionPrompt } from "./diff-accept.js";
 
 export interface BenchmarkMetrics {
   model: string;
@@ -127,4 +128,7 @@ export async function runScientificCliBenchmark(
     }
     console.log("\n");
   }
+
+  // 3. Optional interactive action prompt (clipboard, diff, write-to-file)
+  await runInteractiveActionPrompt(benchmarkResults);
 }

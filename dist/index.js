@@ -14,7 +14,7 @@ import {
   ListToolsRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 
-// ../daemon/dist/providers/mock.js
+// ../Mechapad/packages/daemon/dist/providers/mock.js
 var mockProvider = {
   id: "mock",
   name: "Mock Agent",
@@ -35,13 +35,13 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// ../daemon/dist/tools.js
+// ../Mechapad/packages/daemon/dist/tools.js
 import { execFile as execFile2 } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync3, readdirSync as readdirSync3, statSync as statSync3, writeFileSync, mkdirSync } from "node:fs";
 import { dirname as dirname3, join as join3, relative, resolve as resolve3, sep } from "node:path";
 import { promisify as promisify2 } from "node:util";
 
-// ../daemon/dist/workspace.js
+// ../Mechapad/packages/daemon/dist/workspace.js
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -63,7 +63,7 @@ function workspaceRoot() {
   return defaultRoot();
 }
 
-// ../daemon/dist/skills-loader.js
+// ../Mechapad/packages/daemon/dist/skills-loader.js
 import { execFileSync } from "node:child_process";
 import { existsSync as existsSync2, readdirSync as readdirSync2, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
 import { homedir } from "node:os";
@@ -500,7 +500,7 @@ function findSkillsFor(query, limit = 12) {
   }).slice(0, limit);
 }
 
-// ../daemon/dist/tools.js
+// ../Mechapad/packages/daemon/dist/tools.js
 var execFileAsync2 = promisify2(execFile2);
 var TOOL_SPECS = [
   {
@@ -862,7 +862,7 @@ ${stderr}${hint}`.slice(0, 4e4);
   }
 }
 
-// ../daemon/dist/providers/openai-tools.js
+// ../Mechapad/packages/daemon/dist/providers/openai-tools.js
 var MAX_ROUNDS = 10;
 function isMarketingOrWritingTask(user) {
   return /\b(slide|slides|deck|presentation|website|landing\s*page|homepage|campaign|marketing|ad\s*copy|headline|cta|email\s*sequence|nurture|brand\s*voice|video\s*script|reels?|tiktok|copywriting|rewrite|blog\s*post|social\s*post|caption)\b/i.test(user);
@@ -1203,7 +1203,7 @@ async function plainChat(opts, messages, toolLog = []) {
   });
 }
 
-// ../daemon/dist/grok-oauth.js
+// ../Mechapad/packages/daemon/dist/grok-oauth.js
 import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
 import { join as join4 } from "node:path";
@@ -1313,7 +1313,7 @@ async function getValidGrokTokens() {
   return tokens.accessToken ? tokens : null;
 }
 
-// ../daemon/dist/providers/grok-session.js
+// ../Mechapad/packages/daemon/dist/providers/grok-session.js
 var DEFAULT_MODEL = "grok-4.6";
 function createGrokSessionProvider() {
   return {
@@ -1431,7 +1431,7 @@ function createGrokSessionProvider() {
   };
 }
 
-// ../daemon/dist/providers/zero-key.js
+// ../Mechapad/packages/daemon/dist/providers/zero-key.js
 var PERSONAS = {
   grok: {
     name: "Grok 3",
@@ -1911,7 +1911,7 @@ ${approaches.map((a, i) => `${i + 1}. ${a}`).join("\n\n")}
 *${persona.signatureHeader} \xB7 ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}*`;
 }
 
-// ../daemon/dist/providers/grok.js
+// ../Mechapad/packages/daemon/dist/providers/grok.js
 var XAI_BASE = "https://api.x.ai/v1";
 function createGrokProvider(getKey) {
   const sessionProvider = createGrokSessionProvider();
@@ -1984,7 +1984,7 @@ function createGrokProvider(getKey) {
   };
 }
 
-// ../daemon/dist/providers/gemini.js
+// ../Mechapad/packages/daemon/dist/providers/gemini.js
 var BASE = "https://generativelanguage.googleapis.com/v1beta";
 function createGeminiProvider(getKey) {
   return {
@@ -2106,7 +2106,7 @@ async function callGemini(apiKey, model, prompt, effort, signal, system) {
   return { ok: true, text };
 }
 
-// ../daemon/dist/providers/claude.js
+// ../Mechapad/packages/daemon/dist/providers/claude.js
 var BASE2 = "https://api.anthropic.com/v1/messages";
 function createClaudeProvider(getKey) {
   return {
@@ -2200,7 +2200,7 @@ function createClaudeProvider(getKey) {
   };
 }
 
-// ../daemon/dist/providers/deepseek.js
+// ../Mechapad/packages/daemon/dist/providers/deepseek.js
 var BASE3 = "https://api.deepseek.com/v1";
 function createDeepSeekProvider(getKey) {
   return {
@@ -2252,7 +2252,7 @@ function createDeepSeekProvider(getKey) {
   };
 }
 
-// ../daemon/dist/chatgpt-oauth.js
+// ../Mechapad/packages/daemon/dist/chatgpt-oauth.js
 import { existsSync as existsSync5, mkdirSync as mkdirSync2, readFileSync as readFileSync5, writeFileSync as writeFileSync3, chmodSync } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { dirname as dirname4, join as join5, resolve as resolve4 } from "node:path";
@@ -2431,7 +2431,7 @@ async function getValidChatGptTokens() {
   return tokens;
 }
 
-// ../daemon/dist/providers/chatgpt.js
+// ../Mechapad/packages/daemon/dist/providers/chatgpt.js
 var DEFAULT_MODEL2 = "gpt-5.5";
 function createChatGptProvider() {
   return {
@@ -2559,7 +2559,7 @@ function createChatGptProvider() {
   };
 }
 
-// ../daemon/dist/providers/openai.js
+// ../Mechapad/packages/daemon/dist/providers/openai.js
 var BASE4 = "https://api.openai.com/v1";
 function createOpenAIProvider(getKey) {
   const chatGptProvider = createChatGptProvider();
@@ -2629,7 +2629,7 @@ function createOpenAIProvider(getKey) {
   };
 }
 
-// ../daemon/dist/cloud-client.js
+// ../Mechapad/packages/daemon/dist/cloud-client.js
 import { existsSync as existsSync6, mkdirSync as mkdirSync3, readFileSync as readFileSync6, writeFileSync as writeFileSync4, chmodSync as chmodSync2 } from "node:fs";
 import { homedir as homedir4 } from "node:os";
 import { dirname as dirname5, join as join6, resolve as resolve5 } from "node:path";
@@ -2671,7 +2671,7 @@ function cloudConfigured() {
   return Boolean(getCloudSessionToken());
 }
 
-// ../daemon/dist/providers/mechapad.js
+// ../Mechapad/packages/daemon/dist/providers/mechapad.js
 function createMegaPadProvider() {
   return {
     id: "mechapad",
@@ -2723,7 +2723,7 @@ function createMegaPadProvider() {
   };
 }
 
-// ../daemon/dist/providers/shell.js
+// ../Mechapad/packages/daemon/dist/providers/shell.js
 import { spawn } from "node:child_process";
 function createShellProvider(command = process.env.AGENTPAD_SHELL_CMD ?? "echo") {
   return {
@@ -2735,7 +2735,7 @@ function createShellProvider(command = process.env.AGENTPAD_SHELL_CMD ?? "echo")
       const parts = command.split(/\s+/).filter(Boolean);
       const bin = parts[0] ?? "echo";
       const args = useStdin ? parts.slice(1) : [...parts.slice(1), input.prompt];
-      await new Promise((resolve7) => {
+      await new Promise((resolve8) => {
         const child = spawn(bin, args, {
           env: { ...process.env, AGENTPAD_EFFORT: input.effort },
           stdio: useStdin ? ["pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"]
@@ -2774,18 +2774,18 @@ function createShellProvider(command = process.env.AGENTPAD_SHELL_CMD ?? "echo")
               detail: (err || `exit ${code}`).slice(0, 80)
             });
           }
-          resolve7();
+          resolve8();
         });
         child.on("error", (e) => {
           onEvent({ state: "error", detail: e.message.slice(0, 80) });
-          resolve7();
+          resolve8();
         });
       });
     }
   };
 }
 
-// ../daemon/dist/providers/kimi.js
+// ../Mechapad/packages/daemon/dist/providers/kimi.js
 var BASE5 = "https://api.moonshot.cn/v1";
 function createKimiProvider(getKey) {
   return {
@@ -2839,7 +2839,7 @@ function createKimiProvider(getKey) {
   };
 }
 
-// ../daemon/dist/secrets.js
+// ../Mechapad/packages/daemon/dist/secrets.js
 import { existsSync as existsSync7, mkdirSync as mkdirSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync5, chmodSync as chmodSync3 } from "node:fs";
 import { homedir as homedir5 } from "node:os";
 import { dirname as dirname6, join as join7, resolve as resolve6 } from "node:path";
@@ -3101,7 +3101,7 @@ function getSecrets() {
   return singleton;
 }
 
-// ../daemon/dist/providers/index.js
+// ../Mechapad/packages/daemon/dist/providers/index.js
 function createProviders() {
   const key = (id) => (slot) => getSecrets().get(id, slot);
   const map = /* @__PURE__ */ new Map();
@@ -3622,6 +3622,238 @@ args = ["serve"]
   return results;
 }
 
+// src/diff-accept.ts
+import { spawnSync } from "node:child_process";
+import { writeFileSync as writeFileSync7, mkdirSync as mkdirSync5 } from "node:fs";
+import { dirname as dirname7, resolve as resolve7 } from "node:path";
+import * as readline from "node:readline";
+function extractCodeBlock(text) {
+  const regex = /```(?:[a-zA-Z0-9_\-\.\+]*)\n([\s\S]*?)```/g;
+  const matches = Array.from(text.matchAll(regex));
+  if (matches.length > 0) {
+    let longest = matches[0][1];
+    for (const m of matches) {
+      if (m[1].length > longest.length) {
+        longest = m[1];
+      }
+    }
+    return longest.trim();
+  }
+  return text.trim();
+}
+function copyToClipboard(text) {
+  try {
+    const platform = process.platform;
+    if (platform === "darwin") {
+      const proc = spawnSync("pbcopy", [], { input: text, encoding: "utf8" });
+      return proc.status === 0;
+    } else if (platform === "win32") {
+      const proc = spawnSync("clip", [], { input: text, encoding: "utf8" });
+      return proc.status === 0;
+    } else {
+      const linuxTools = [
+        ["wl-copy", []],
+        ["xclip", ["-selection", "clipboard"]],
+        ["xsel", ["-b"]]
+      ];
+      for (const [bin, args] of linuxTools) {
+        try {
+          const proc = spawnSync(bin, args, { input: text, encoding: "utf8" });
+          if (proc.status === 0) return true;
+        } catch {
+        }
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+function computeLcsDiff(linesA, linesB) {
+  const n = linesA.length;
+  const m = linesB.length;
+  if (n > 800 || m > 800) {
+    const out = [];
+    for (const l of linesA) out.push({ type: "removed", line: l });
+    for (const l of linesB) out.push({ type: "added", line: l });
+    return out;
+  }
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i2 = 0; i2 < n; i2++) {
+    for (let j2 = 0; j2 < m; j2++) {
+      if (linesA[i2] === linesB[j2]) {
+        dp[i2 + 1][j2 + 1] = dp[i2][j2] + 1;
+      } else {
+        dp[i2 + 1][j2 + 1] = Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
+      }
+    }
+  }
+  const diff = [];
+  let i = n;
+  let j = m;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && linesA[i - 1] === linesB[j - 1]) {
+      diff.unshift({ type: "common", line: linesA[i - 1] });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      diff.unshift({ type: "added", line: linesB[j - 1] });
+      j--;
+    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+      diff.unshift({ type: "removed", line: linesA[i - 1] });
+      i--;
+    }
+  }
+  return diff;
+}
+function formatColoredDiff(nameA, codeA, nameB, codeB) {
+  const linesA = codeA.split(/\r?\n/);
+  const linesB = codeB.split(/\r?\n/);
+  const diff = computeLcsDiff(linesA, linesB);
+  let output = `
+\x1B[1m--- [1] ${nameA}\x1B[0m
+`;
+  output += `\x1B[1m+++ [2] ${nameB}\x1B[0m
+`;
+  output += `\x1B[90m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
+`;
+  let addedCount = 0;
+  let removedCount = 0;
+  for (const item of diff) {
+    if (item.type === "added") {
+      addedCount++;
+      output += `\x1B[32m+ ${item.line}\x1B[0m
+`;
+    } else if (item.type === "removed") {
+      removedCount++;
+      output += `\x1B[31m- ${item.line}\x1B[0m
+`;
+    } else {
+      output += `\x1B[90m  ${item.line}\x1B[0m
+`;
+    }
+  }
+  output += `\x1B[90m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
+`;
+  output += `\x1B[90mDiff summary: \x1B[32m+${addedCount}\x1B[0m / \x1B[31m-${removedCount}\x1B[0m lines\x1B[0m
+`;
+  return output;
+}
+function writeCodeToFile(targetPath, content) {
+  const fullPath = resolve7(process.cwd(), targetPath);
+  mkdirSync5(dirname7(fullPath), { recursive: true });
+  writeFileSync7(fullPath, content, "utf8");
+  return fullPath;
+}
+function promptQuestion(rl, query) {
+  return new Promise((resolve8) => {
+    rl.question(query, (answer) => {
+      resolve8(answer.trim());
+    });
+  });
+}
+async function runInteractiveActionPrompt(results) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return;
+  }
+  const successful = results.filter((r) => r.success && r.text.trim());
+  if (successful.length === 0) {
+    return;
+  }
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  try {
+    let keepRunning = true;
+    while (keepRunning) {
+      console.log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+      console.log(" \u26A1 \x1B[1m\x1B[36mACTIONS\x1B[0m (100% offline \xB7 0 additional tokens)");
+      console.log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+      for (let idx = 0; idx < successful.length; idx++) {
+        const item = successful[idx];
+        console.log(`  \x1B[1m[${idx + 1}]\x1B[0m Copy \x1B[33m[${item.model}]\x1B[0m code to clipboard`);
+      }
+      if (successful.length >= 2) {
+        console.log(`  \x1B[1m[D]\x1B[0m View colored side-by-side diff (\x1B[33m[${successful[0].model}]\x1B[0m vs \x1B[33m[${successful[1].model}]\x1B[0m)`);
+      }
+      console.log(`  \x1B[1m[W]\x1B[0m Write winning code to file`);
+      console.log(`  \x1B[90m[Q / Enter] Done (exit)\x1B[0m`);
+      console.log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+      const ans = await promptQuestion(rl, "\u{1F449} Select action: ");
+      if (!ans || ans.toLowerCase() === "q" || ans.toLowerCase() === "exit") {
+        keepRunning = false;
+        break;
+      }
+      const num = parseInt(ans, 10);
+      if (!isNaN(num) && num >= 1 && num <= successful.length) {
+        const chosen = successful[num - 1];
+        const code = extractCodeBlock(chosen.text);
+        const ok = copyToClipboard(code);
+        const lineCount = code.split(/\r?\n/).length;
+        if (ok) {
+          console.log(`
+\x1B[32m\u2714 Copied [${chosen.model}] code to clipboard! (${lineCount} lines)\x1B[0m`);
+          console.log(`\x1B[90mTip: Paste directly with Cmd+V / Ctrl+V into your editor.\x1B[0m
+`);
+        } else {
+          console.log(`
+\x1B[33m\u26A0\uFE0F Could not write to system clipboard automatically.\x1B[0m
+`);
+        }
+        continue;
+      }
+      if (ans.toLowerCase() === "d" && successful.length >= 2) {
+        const modA = successful[0];
+        const modB = successful[1];
+        const codeA = extractCodeBlock(modA.text);
+        const codeB = extractCodeBlock(modB.text);
+        console.log(formatColoredDiff(modA.model, codeA, modB.model, codeB));
+        continue;
+      }
+      if (ans.toLowerCase() === "w") {
+        let chosenIdx = 0;
+        if (successful.length > 1) {
+          const modAns = await promptQuestion(
+            rl,
+            `Which model's code to write? (1-${successful.length}, default 1): `
+          );
+          const parsedIdx = parseInt(modAns, 10);
+          if (!isNaN(parsedIdx) && parsedIdx >= 1 && parsedIdx <= successful.length) {
+            chosenIdx = parsedIdx - 1;
+          }
+        }
+        const chosen = successful[chosenIdx];
+        const targetPath = await promptQuestion(
+          rl,
+          `Enter destination file path (e.g. src/solution.rs): `
+        );
+        if (!targetPath) {
+          console.log("\x1B[90mCancelled write.\x1B[0m\n");
+          continue;
+        }
+        try {
+          const code = extractCodeBlock(chosen.text);
+          const writtenPath = writeCodeToFile(targetPath, code);
+          const lineCount = code.split(/\r?\n/).length;
+          console.log(`
+\x1B[32m\u2714 Successfully wrote [${chosen.model}] code to ${targetPath} (${lineCount} lines)\x1B[0m`);
+          console.log(`\x1B[90mAbsolute: ${writtenPath}\x1B[0m
+`);
+        } catch (err) {
+          console.log(`
+\x1B[31m\u2716 Error writing file:\x1B[0m ${err instanceof Error ? err.message : String(err)}
+`);
+        }
+        continue;
+      }
+      console.log("\x1B[90mUnrecognized option. Try 1, 2, D, W, or Q.\x1B[0m\n");
+    }
+  } finally {
+    rl.close();
+  }
+}
+
 // src/cli-compare.ts
 async function runScientificCliBenchmark(prompt, modelList) {
   const engine = new MultiModelEngine();
@@ -3700,6 +3932,7 @@ async function runScientificCliBenchmark(prompt, modelList) {
     }
     console.log("\n");
   }
+  await runInteractiveActionPrompt(benchmarkResults);
 }
 
 // src/accounts.ts
@@ -3903,14 +4136,14 @@ function detectHostProvider() {
 }
 async function readStdin() {
   if (process.stdin.isTTY) return "";
-  return new Promise((resolve7) => {
+  return new Promise((resolve8) => {
     let data = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", (chunk) => {
       data += chunk;
     });
-    process.stdin.on("end", () => resolve7(data.trim()));
-    setTimeout(() => resolve7(data.trim()), 1e3);
+    process.stdin.on("end", () => resolve8(data.trim()));
+    setTimeout(() => resolve8(data.trim()), 1e3);
   });
 }
 async function start() {
@@ -4016,12 +4249,7 @@ ${pipedStdin}
       // Grok tiers
       grok: "grok",
       grok3: "grok",
-      xai: "grok",
-      // Kimi / Moonshot tiers
-      kimi: "kimi",
-      "kimi-tc": "kimi",
-      tc: "kimi",
-      moonshot: "kimi"
+      xai: "grok"
     };
     const knownProviders = [
       "grok",
@@ -4037,8 +4265,6 @@ ${pipedStdin}
       "astra",
       "r1",
       "flash",
-      "kimi",
-      "tc",
       "mock"
     ];
     if (!models) {
@@ -4061,8 +4287,7 @@ ${pipedStdin}
           grok: ["4.6", "grok-4.6", "build", "grok-build", "3", "grok-3", "3-mini", "grok-3-mini", "mini"],
           claude: ["fable", "claude-5", "sonnet", "opus", "haiku"],
           deepseek: ["r1", "reasoner", "v4", "v4.1", "chat"],
-          gemini: ["flash", "3.8", "cyber", "pro"],
-          kimi: ["tc", "k2.7", "k2", "code", "k3"]
+          gemini: ["flash", "3.8", "cyber", "pro"]
         };
         const tierToProvider = {
           astra: { provider: "openai", tier: "astra" },
@@ -4090,11 +4315,7 @@ ${pipedStdin}
           r1: { provider: "deepseek", tier: "r1" },
           "deepseek-r1": { provider: "deepseek", tier: "r1" },
           reasoner: { provider: "deepseek", tier: "r1" },
-          flash: { provider: "gemini", tier: "flash" },
-          tc: { provider: "kimi", tier: "tc" },
-          "kimi-tc": { provider: "kimi", tier: "tc" },
-          "k2.7": { provider: "kimi", tier: "tc" },
-          kimi: { provider: "kimi", tier: "tc" }
+          flash: { provider: "gemini", tier: "flash" }
         };
         const parseTargetSpec = (tokens) => {
           if (!tokens.length) return null;
