@@ -41,7 +41,12 @@ async function start() {
     process.exit(0);
   }
 
-  const isServeMcp = process.argv.includes("serve") || process.argv.includes("--mcp");
+  const isServeMcp =
+    process.argv.includes("serve") ||
+    process.argv.includes("--mcp") ||
+    process.argv.includes("mcp") ||
+    process.argv.includes("--stdio") ||
+    process.argv.includes("stdio");
   const isInteractiveTerminal = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const hasArgs = process.argv.length > 2;
 
@@ -60,11 +65,14 @@ async function start() {
     process.exit(0);
   }
 
+  // Determine if this is CLI compare/race mode or MCP server mode
   const isCompareCmd =
-    process.argv.includes("compare") ||
-    process.argv.includes("benchmark") ||
-    process.argv.includes("review") ||
-    (!isServeMcp && (hasArgs || !process.stdin.isTTY));
+    !isServeMcp &&
+    (process.argv.includes("compare") ||
+      process.argv.includes("benchmark") ||
+      process.argv.includes("review") ||
+      hasArgs ||
+      (!process.stdin.isTTY && process.stdout.isTTY));
 
   // CLI Compare / Benchmark mode
   if (isCompareCmd) {

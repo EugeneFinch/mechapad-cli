@@ -2543,7 +2543,7 @@ async function runAgentInstaller() {
     if (!claudeConfig.mcpServers) claudeConfig.mcpServers = {};
     const mcpDefinition = {
       command: "npx",
-      args: ["-y", "megapad"],
+      args: ["-y", "megapad", "serve"],
       env: {}
     };
     const isExisting = Boolean(claudeConfig.mcpServers.megapad);
@@ -2563,10 +2563,12 @@ async function runAgentInstaller() {
       if (!settings.permissions) settings.permissions = {};
       if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
       const permissions = [
+        "mcp__megapad__*",
         "mcp__megapad__megapad_compare",
         "mcp__megapad__megapad_consult_peer",
         "mcp__megapad__megapad_council_code_review",
-        "mcp__megapad__megapad_list_models"
+        "mcp__megapad__megapad_list_models",
+        "mcp__megapad__megapad_status"
       ];
       for (const p of permissions) {
         if (!settings.permissions.allow.includes(p)) {
@@ -2605,7 +2607,7 @@ async function runAgentInstaller() {
       const isExisting = Boolean(cursorConfig.mcpServers.megapad);
       cursorConfig.mcpServers.megapad = {
         command: "npx",
-        args: ["-y", "megapad"]
+        args: ["-y", "megapad", "serve"]
       };
       fs.writeFileSync(cursorMcpPath, JSON.stringify(cursorConfig, null, 2));
       results.push({
@@ -2629,7 +2631,7 @@ async function runAgentInstaller() {
         if (!localConfig.mcpServers) localConfig.mcpServers = {};
         localConfig.mcpServers.megapad = {
           command: "npx",
-          args: ["-y", "megapad"]
+          args: ["-y", "megapad", "serve"]
         };
         fs.writeFileSync(localMcpPath, JSON.stringify(localConfig, null, 2));
         results.push({
@@ -2655,12 +2657,12 @@ async function runAgentInstaller() {
       if (fs.existsSync(codexConfigPath)) {
         content = fs.readFileSync(codexConfigPath, "utf-8");
       }
-      if (!content.includes("[mcp.megapad]")) {
+      if (!content.includes("[mcp_servers.megapad]")) {
         const block = `
 
-[mcp.megapad]
-command = "npx"
-args = ["-y", "megapad"]
+[mcp_servers.megapad]
+command = "megapad"
+args = ["serve"]
 `;
         fs.appendFileSync(codexConfigPath, block);
         results.push({
@@ -2944,7 +2946,7 @@ async function start() {
     await runAgentInstaller();
     process.exit(0);
   }
-  const isServeMcp = process.argv.includes("serve") || process.argv.includes("--mcp");
+  const isServeMcp = process.argv.includes("serve") || process.argv.includes("--mcp") || process.argv.includes("mcp") || process.argv.includes("--stdio") || process.argv.includes("stdio");
   const isInteractiveTerminal = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const hasArgs = process.argv.length > 2;
   if (!isServeMcp && isInteractiveTerminal && !hasArgs) {
@@ -2960,7 +2962,7 @@ async function start() {
     printAccountDashboard();
     process.exit(0);
   }
-  const isCompareCmd = process.argv.includes("compare") || process.argv.includes("benchmark") || process.argv.includes("review") || !isServeMcp && (hasArgs || !process.stdin.isTTY);
+  const isCompareCmd = !isServeMcp && (process.argv.includes("compare") || process.argv.includes("benchmark") || process.argv.includes("review") || hasArgs || !process.stdin.isTTY && process.stdout.isTTY);
   if (isCompareCmd) {
     const rawArgs = process.argv.slice(2);
     let models;

@@ -32,7 +32,7 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
 
     const mcpDefinition = {
       command: "npx",
-      args: ["-y", "megapad"],
+      args: ["-y", "megapad", "serve"],
       env: {},
     };
 
@@ -56,10 +56,12 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
       if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
 
       const permissions = [
+        "mcp__megapad__*",
         "mcp__megapad__megapad_compare",
         "mcp__megapad__megapad_consult_peer",
         "mcp__megapad__megapad_council_code_review",
         "mcp__megapad__megapad_list_models",
+        "mcp__megapad__megapad_status",
       ];
 
       for (const p of permissions) {
@@ -104,7 +106,7 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
       const isExisting = Boolean(cursorConfig.mcpServers.megapad);
       cursorConfig.mcpServers.megapad = {
         command: "npx",
-        args: ["-y", "megapad"],
+        args: ["-y", "megapad", "serve"],
       };
 
       fs.writeFileSync(cursorMcpPath, JSON.stringify(cursorConfig, null, 2));
@@ -129,7 +131,7 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
         if (!localConfig.mcpServers) localConfig.mcpServers = {};
         localConfig.mcpServers.megapad = {
           command: "npx",
-          args: ["-y", "megapad"],
+          args: ["-y", "megapad", "serve"],
         };
         fs.writeFileSync(localMcpPath, JSON.stringify(localConfig, null, 2));
         results.push({
@@ -158,8 +160,8 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
         content = fs.readFileSync(codexConfigPath, "utf-8");
       }
 
-      if (!content.includes("[mcp.megapad]")) {
-        const block = `\n\n[mcp.megapad]\ncommand = "npx"\nargs = ["-y", "megapad"]\n`;
+      if (!content.includes("[mcp_servers.megapad]")) {
+        const block = `\n\n[mcp_servers.megapad]\ncommand = "megapad"\nargs = ["serve"]\n`;
         fs.appendFileSync(codexConfigPath, block);
         results.push({
           target: "Codex CLI",
