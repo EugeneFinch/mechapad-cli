@@ -1630,7 +1630,7 @@ function getCloudBaseUrl() {
   const file = readFile();
   if (file.baseUrl?.trim())
     return file.baseUrl.trim().replace(/\/$/, "");
-  return "http://127.0.0.1:7600";
+  return "https://api.mechapad.com";
 }
 function getCloudSessionToken() {
   const env = process.env.MECHAPAD_SESSION_TOKEN?.trim();
