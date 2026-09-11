@@ -2986,15 +2986,35 @@ ${pipedStdin}
     if (!userPrompt) {
       console.log("\n\u26A1 \x1B[1m\x1B[36mMegaPad \u2014 Multi-Model AI Control Surface & Native MCP Server\x1B[0m\n");
       console.log("Usage:");
-      console.log('  \x1B[1mpad "<question>"\x1B[0m          Run a multi-model parallel race & live telemetry');
+      console.log('  \x1B[1mpad "<question>"\x1B[0m          Run all available frontier models in parallel');
+      console.log('  \x1B[1mpad vs <model> "<prompt>"\x1B[0m  Head-to-head race: Claude vs Target (e.g. pad vs grok ...)');
       console.log("  \x1B[1mpad review\x1B[0m                Run multi-model peer code review council");
       console.log("  \x1B[1mpad status\x1B[0m                View connected accounts & subscriptions");
       console.log("  \x1B[1mpad install\x1B[0m               1-click auto-configurator for Claude, Cursor, Codex\n");
       console.log("Examples:");
-      console.log('  \x1B[90m$ pad "How do I optimize this query?"\x1B[0m');
+      console.log('  \x1B[90m$ pad vs grok "Best SEO strategy for Amazon product launches"\x1B[0m');
+      console.log('  \x1B[90m$ pad deepseek "Write a Redis rate limiter in TypeScript"\x1B[0m');
       console.log("  \x1B[90m$ git diff | pad review\x1B[0m\n");
       printAccountDashboard();
       process.exit(0);
+    }
+    const knownProviders = ["grok", "deepseek", "gemini", "openai", "chatgpt", "claude", "mock"];
+    if (!models) {
+      if (userPrompt.toLowerCase().startsWith("vs ")) {
+        const parts = userPrompt.slice(3).trim().split(" ");
+        const candidate = parts[0]?.toLowerCase();
+        if (candidate && knownProviders.includes(candidate)) {
+          models = ["claude", candidate];
+          userPrompt = parts.slice(1).join(" ").trim();
+        }
+      } else {
+        const parts = userPrompt.split(" ");
+        const candidate = parts[0]?.toLowerCase();
+        if (candidate && knownProviders.includes(candidate) && parts.length > 1) {
+          models = ["claude", candidate];
+          userPrompt = parts.slice(1).join(" ").trim();
+        }
+      }
     }
     await runScientificCliBenchmark(userPrompt, models);
     process.exit(0);

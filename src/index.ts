@@ -89,15 +89,39 @@ async function start() {
     if (!userPrompt) {
       console.log("\n⚡ \x1b[1m\x1b[36mMegaPad — Multi-Model AI Control Surface & Native MCP Server\x1b[0m\n");
       console.log("Usage:");
-      console.log("  \x1b[1mpad \"<question>\"\x1b[0m          Run a multi-model parallel race & live telemetry");
+      console.log("  \x1b[1mpad \"<question>\"\x1b[0m          Run all available frontier models in parallel");
+      console.log("  \x1b[1mpad vs <model> \"<prompt>\"\x1b[0m  Head-to-head race: Claude vs Target (e.g. pad vs grok ...)");
       console.log("  \x1b[1mpad review\x1b[0m                Run multi-model peer code review council");
       console.log("  \x1b[1mpad status\x1b[0m                View connected accounts & subscriptions");
       console.log("  \x1b[1mpad install\x1b[0m               1-click auto-configurator for Claude, Cursor, Codex\n");
       console.log("Examples:");
-      console.log("  \x1b[90m$ pad \"How do I optimize this query?\"\x1b[0m");
+      console.log("  \x1b[90m$ pad vs grok \"Best SEO strategy for Amazon product launches\"\x1b[0m");
+      console.log("  \x1b[90m$ pad deepseek \"Write a Redis rate limiter in TypeScript\"\x1b[0m");
       console.log("  \x1b[90m$ git diff | pad review\x1b[0m\n");
       printAccountDashboard();
       process.exit(0);
+    }
+
+    // Smart 1-on-1 vs / model prefix parsing:
+    // e.g. "vs grok <prompt>" -> models = ["claude", "grok"]
+    // e.g. "deepseek <prompt>" -> models = ["claude", "deepseek"]
+    const knownProviders = ["grok", "deepseek", "gemini", "openai", "chatgpt", "claude", "mock"];
+    if (!models) {
+      if (userPrompt.toLowerCase().startsWith("vs ")) {
+        const parts = userPrompt.slice(3).trim().split(" ");
+        const candidate = parts[0]?.toLowerCase();
+        if (candidate && knownProviders.includes(candidate)) {
+          models = ["claude", candidate];
+          userPrompt = parts.slice(1).join(" ").trim();
+        }
+      } else {
+        const parts = userPrompt.split(" ");
+        const candidate = parts[0]?.toLowerCase();
+        if (candidate && knownProviders.includes(candidate) && parts.length > 1) {
+          models = ["claude", candidate];
+          userPrompt = parts.slice(1).join(" ").trim();
+        }
+      }
     }
 
     await runScientificCliBenchmark(userPrompt, models);
