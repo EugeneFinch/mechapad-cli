@@ -176,12 +176,35 @@ async function start() {
     ];
 
     if (!models) {
-      if (userPrompt.toLowerCase().startsWith("vs ")) {
+      if (userPrompt.toLowerCase().startsWith("review")) {
+        const afterReview = userPrompt.slice(6).trim();
+        const parts = afterReview ? afterReview.split(" ") : [];
+        const first = parts[0]?.toLowerCase() ?? "";
+        const potentialModels = first.split(",").map((m) => m.trim().toLowerCase());
+        const mappedReviewers = potentialModels
+          .map((m) => providerAliasMap[m] || (knownProviders.includes(m) ? m : undefined))
+          .filter((m): m is string => Boolean(m));
+
+        if (mappedReviewers.length > 0) {
+          models = mappedReviewers;
+          userPrompt = parts.slice(1).join(" ").trim() || "Thorough multi-model peer code review for edge-case bugs, security vulnerabilities, memory safety, and performance optimizations.";
+        } else {
+          models = ["deepseek", "openai"];
+          userPrompt = afterReview || "Thorough multi-model peer code review for edge-case bugs, security vulnerabilities, memory safety, and performance optimizations.";
+        }
+      } else if (userPrompt.toLowerCase().startsWith("vs ")) {
         const parts = userPrompt.slice(3).trim().split(" ");
-        const rawCandidate = parts[0]?.toLowerCase() ?? "";
-        const target = providerAliasMap[rawCandidate] || rawCandidate;
-        if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target))) {
-          models = ["claude", target];
+        const first = parts[0]?.toLowerCase() ?? "";
+        const second = parts[1]?.toLowerCase() ?? "";
+        const target1 = providerAliasMap[first] || (knownProviders.includes(first) ? first : undefined);
+        const target2 = providerAliasMap[second] || (knownProviders.includes(second) ? second : undefined);
+
+        if (target1 && target2 && parts.length > 2) {
+          models = [target1, target2];
+          userPrompt = parts.slice(2).join(" ").trim();
+        } else if (target1) {
+          const defaultBase = target1 === "claude" ? "openai" : "claude";
+          models = [defaultBase, target1];
           userPrompt = parts.slice(1).join(" ").trim();
         }
       } else {
@@ -189,7 +212,8 @@ async function start() {
         const rawCandidate = parts[0]?.toLowerCase() ?? "";
         const target = providerAliasMap[rawCandidate] || rawCandidate;
         if (target && (knownProviders.includes(rawCandidate) || knownProviders.includes(target)) && parts.length > 1) {
-          models = ["claude", target];
+          const defaultBase = target === "claude" ? "openai" : "claude";
+          models = [defaultBase, target];
           userPrompt = parts.slice(1).join(" ").trim();
         }
       }
