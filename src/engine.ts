@@ -74,11 +74,55 @@ export interface CompareResult {
   formattedSummary: string;
 }
 
+const MODEL_ALIAS_MAP: Record<string, ProviderId> = {
+  opus: "claude",
+  sonnet: "claude",
+  fable: "claude",
+  haiku: "claude",
+  anthropic: "claude",
+  claude: "claude",
+
+  astra: "openai",
+  sol: "openai",
+  codex: "openai",
+  chatgpt: "openai",
+  gpt: "openai",
+  gpt4: "openai",
+  gpt5: "openai",
+  gpt6: "openai",
+  openai: "openai",
+  o3: "openai",
+  o4: "openai",
+
+  r1: "deepseek",
+  v4: "deepseek",
+  "v4.1": "deepseek",
+  v41: "deepseek",
+  reasoner: "deepseek",
+  deepseek: "deepseek",
+
+  flash: "gemini",
+  cyber: "gemini",
+  google: "gemini",
+  gemini: "gemini",
+
+  grok: "grok",
+  grok3: "grok",
+  xai: "grok",
+
+  mock: "mock",
+};
+
 export class MultiModelEngine {
   private providers: Map<ProviderId, Provider>;
 
   constructor() {
     this.providers = createProviders();
+  }
+
+  public resolveProviderId(id: string): ProviderId {
+    const clean = String(id || "").trim().toLowerCase();
+    return MODEL_ALIAS_MAP[clean] || (clean as ProviderId);
   }
 
   public getAvailableModels(): { id: string; name: string }[] {
@@ -122,19 +166,20 @@ export class MultiModelEngine {
   }
 
   public async runSingleModel(
-    providerId: ProviderId,
+    providerIdOrAlias: string,
     prompt: string,
     system?: string,
     effort = "medium",
   ): Promise<ModelResult> {
+    const providerId = this.resolveProviderId(providerIdOrAlias);
     const provider = this.providers.get(providerId);
     if (!provider) {
       return {
-        model: providerId,
+        model: providerIdOrAlias,
         provider: providerId,
         success: false,
         text: "",
-        error: `Provider '${providerId}' not found. Available: ${Array.from(this.providers.keys()).join(", ")}`,
+        error: `Provider '${providerIdOrAlias}' not found. Available: ${Array.from(this.providers.keys()).join(", ")}`,
         durationMs: 0,
         metrics: {
           inputTokens: 0,

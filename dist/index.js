@@ -2319,10 +2319,47 @@ var PROVIDER_PRICING = {
     isSubscriptionOrFree: true
   }
 };
+var MODEL_ALIAS_MAP = {
+  opus: "claude",
+  sonnet: "claude",
+  fable: "claude",
+  haiku: "claude",
+  anthropic: "claude",
+  claude: "claude",
+  astra: "openai",
+  sol: "openai",
+  codex: "openai",
+  chatgpt: "openai",
+  gpt: "openai",
+  gpt4: "openai",
+  gpt5: "openai",
+  gpt6: "openai",
+  openai: "openai",
+  o3: "openai",
+  o4: "openai",
+  r1: "deepseek",
+  v4: "deepseek",
+  "v4.1": "deepseek",
+  v41: "deepseek",
+  reasoner: "deepseek",
+  deepseek: "deepseek",
+  flash: "gemini",
+  cyber: "gemini",
+  google: "gemini",
+  gemini: "gemini",
+  grok: "grok",
+  grok3: "grok",
+  xai: "grok",
+  mock: "mock"
+};
 var MultiModelEngine = class {
   providers;
   constructor() {
     this.providers = createProviders();
+  }
+  resolveProviderId(id) {
+    const clean = String(id || "").trim().toLowerCase();
+    return MODEL_ALIAS_MAP[clean] || clean;
   }
   getAvailableModels() {
     return Array.from(this.providers.values()).map((p) => ({
@@ -2353,15 +2390,16 @@ var MultiModelEngine = class {
       costSavingsPercentVsClaude: savingsPercent
     };
   }
-  async runSingleModel(providerId, prompt, system, effort = "medium") {
+  async runSingleModel(providerIdOrAlias, prompt, system, effort = "medium") {
+    const providerId = this.resolveProviderId(providerIdOrAlias);
     const provider = this.providers.get(providerId);
     if (!provider) {
       return {
-        model: providerId,
+        model: providerIdOrAlias,
         provider: providerId,
         success: false,
         text: "",
-        error: `Provider '${providerId}' not found. Available: ${Array.from(this.providers.keys()).join(", ")}`,
+        error: `Provider '${providerIdOrAlias}' not found. Available: ${Array.from(this.providers.keys()).join(", ")}`,
         durationMs: 0,
         metrics: {
           inputTokens: 0,
@@ -3118,7 +3156,7 @@ function startMcpServer() {
       tools: [
         {
           name: "megapad_compare",
-          description: "Executes a prompt across multiple AI frontier models (Claude, OpenAI / GPT-6, DeepSeek, Gemini, Grok) in parallel and returns side-by-side responses with performance metrics for comparison.",
+          description: "Executes a prompt across multiple AI frontier models (Claude Fable, GPT-6 Astra, Grok 3, DeepSeek V4.1, Gemini 3.8) in parallel and returns side-by-side responses with performance metrics.",
           inputSchema: {
             type: "object",
             properties: {
@@ -3129,10 +3167,9 @@ function startMcpServer() {
               models: {
                 type: "array",
                 items: {
-                  type: "string",
-                  enum: ["claude", "openai", "deepseek", "gemini", "grok", "mock"]
+                  type: "string"
                 },
-                description: "List of model providers to execute concurrently. Defaults to ['claude', 'openai']."
+                description: "List of models or providers to execute concurrently (e.g. ['grok', 'astra', 'fable', 'deepseek', 'gemini', 'opus']). Defaults to ['claude', 'openai']."
               },
               system: {
                 type: "string",
@@ -3144,14 +3181,13 @@ function startMcpServer() {
         },
         {
           name: "megapad_consult_peer",
-          description: "Asks a specific peer AI model (e.g. DeepSeek R1 for mathematical reasoning or OpenAI GPT-6 for code) a targeted question to get a second opinion.",
+          description: "Asks a specific peer AI model (e.g. Grok 3, OpenAI GPT-6 Astra, DeepSeek V4.1, Gemini, Claude) a targeted question to get a second opinion or instant rival response.",
           inputSchema: {
             type: "object",
             properties: {
               model: {
                 type: "string",
-                enum: ["claude", "openai", "deepseek", "gemini", "grok", "mock"],
-                description: "The target model provider to query."
+                description: "The target model or provider (e.g. grok, astra, codex, deepseek, gemini, opus, fable, claude)."
               },
               prompt: {
                 type: "string",
@@ -3167,7 +3203,7 @@ function startMcpServer() {
         },
         {
           name: "megapad_council_code_review",
-          description: "Sends code to a council of peer models (e.g. DeepSeek and OpenAI) to find edge-case bugs, security vulnerabilities, and alternative performance optimizations.",
+          description: "Sends code to a council of peer models (e.g. OpenAI GPT-6 Astra and DeepSeek V4.1) to find edge-case bugs, security vulnerabilities, and alternative performance optimizations.",
           inputSchema: {
             type: "object",
             properties: {
@@ -3182,10 +3218,9 @@ function startMcpServer() {
               reviewer_models: {
                 type: "array",
                 items: {
-                  type: "string",
-                  enum: ["openai", "deepseek", "claude", "gemini", "grok", "mock"]
+                  type: "string"
                 },
-                description: "Models to include in the review council. Defaults to ['openai', 'deepseek']."
+                description: "Models to include in the review council (e.g. ['openai', 'deepseek', 'grok', 'gemini']). Defaults to ['openai', 'deepseek']."
               }
             },
             required: ["code"]
