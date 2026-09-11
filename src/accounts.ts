@@ -17,7 +17,7 @@ export function detectConnectedAccounts(): AccountInfo[] {
 
   // 1. OpenAI / ChatGPT
   let openaiConnected = false;
-  let openaiSource = "Not connected";
+  let openaiSource = "Zero-Key Gateway (Free)";
   const codexAuthPath = path.join(home, ".codex", "auth.json");
   const agentpadSecretsPath = path.join(home, ".agentpad", "secrets.json");
 
@@ -39,14 +39,14 @@ export function detectConnectedAccounts(): AccountInfo[] {
   accounts.push({
     provider: "OpenAI / ChatGPT",
     source: openaiSource,
-    status: openaiConnected ? "connected" : "missing",
-    statusText: openaiConnected ? "✔ Connected (Subscription/API)" : "✖ Set OPENAI_API_KEY",
+    status: openaiConnected ? "connected" : "active_free",
+    statusText: openaiConnected ? "✔ Connected (Session/API)" : "⚡ Zero-Key Ready",
     activeModel: "GPT-6 Astra / Sol",
   });
 
   // 2. Anthropic Claude
   let claudeConnected = false;
-  let claudeSource = "Not connected";
+  let claudeSource = "Zero-Key Gateway (Free)";
   const claudeJsonPath = path.join(home, ".claude.json");
 
   if (process.env.ANTHROPIC_API_KEY) {
@@ -60,14 +60,14 @@ export function detectConnectedAccounts(): AccountInfo[] {
   accounts.push({
     provider: "Anthropic Claude",
     source: claudeSource,
-    status: claudeConnected ? "connected" : "missing",
-    statusText: claudeConnected ? "✔ Connected (Claude Code)" : "✖ Set ANTHROPIC_API_KEY",
+    status: claudeConnected ? "connected" : "active_free",
+    statusText: claudeConnected ? "✔ Connected (Claude Code)" : "⚡ Zero-Key Ready",
     activeModel: "Claude Fable 5.1 / Sonnet 5",
   });
 
   // 3. DeepSeek
   let deepseekConnected = false;
-  let deepseekSource = "Not connected";
+  let deepseekSource = "Zero-Key Gateway (Free)";
 
   if (process.env.DEEPSEEK_API_KEY) {
     deepseekConnected = true;
@@ -87,8 +87,8 @@ export function detectConnectedAccounts(): AccountInfo[] {
   accounts.push({
     provider: "DeepSeek",
     source: deepseekSource,
-    status: deepseekConnected ? "connected" : "missing",
-    statusText: deepseekConnected ? "✔ Connected" : "✖ Set DEEPSEEK_API_KEY",
+    status: deepseekConnected ? "connected" : "active_free",
+    statusText: deepseekConnected ? "✔ Connected" : "⚡ Zero-Key Ready",
     activeModel: "DeepSeek V4.1 Flash",
   });
 
@@ -112,7 +112,17 @@ export function detectConnectedAccounts(): AccountInfo[] {
     activeModel: "Gemini 3.8 Flash",
   });
 
-  // 5. Cursor IDE Integration
+  // 5. Grok (xAI)
+  let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
+  accounts.push({
+    provider: "Grok (xAI)",
+    source: grokConnected ? "Environment (XAI_API_KEY)" : "Zero-Key Gateway (Free)",
+    status: grokConnected ? "connected" : "active_free",
+    statusText: grokConnected ? "✔ Connected" : "⚡ Zero-Key Ready",
+    activeModel: "Grok 3 Beta",
+  });
+
+  // 6. Cursor IDE Integration
   const cursorMcpPath = path.join(home, ".cursor", "mcp.json");
   let cursorConnected = false;
   if (fs.existsSync(cursorMcpPath)) {
@@ -130,18 +140,8 @@ export function detectConnectedAccounts(): AccountInfo[] {
     provider: "Cursor IDE",
     source: "~/.cursor/mcp.json",
     status: cursorConnected ? "connected" : "missing",
-    statusText: cursorConnected ? "✔ Native MCP Active" : "Run 'megapad install'",
+    statusText: cursorConnected ? "✔ Native MCP Active" : "Run 'pad install'",
     activeModel: "Claude / GPT / DeepSeek / Gemini",
-  });
-
-  // 6. Grok (xAI)
-  let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
-  accounts.push({
-    provider: "Grok (xAI)",
-    source: grokConnected ? "Environment (XAI_API_KEY)" : "No key found",
-    status: grokConnected ? "connected" : "missing",
-    statusText: grokConnected ? "✔ Connected" : "Optional (Set XAI_API_KEY)",
-    activeModel: "Grok 3 Beta",
   });
 
   return accounts;
@@ -151,7 +151,7 @@ export function printAccountDashboard(): void {
   const accounts = detectConnectedAccounts();
 
   console.log("\n==========================================================================================");
-  console.log(" 🔑 \x1b[1m\x1b[36mMEGAPAD CONNECTED ACCOUNTS & SUBSCRIPTIONS\x1b[0m");
+  console.log(" 🔑 \x1b[1m\x1b[36mMEGAPAD CONNECTED ACCOUNTS & SUBSCRIPTIONS (ZERO-KEY ACTIVE)\x1b[0m");
   console.log("==========================================================================================\n");
 
   console.log("┌──────────────────────┬────────────────────────────────────────┬──────────────────────┬────────────────────────────┐");
@@ -176,5 +176,5 @@ export function printAccountDashboard(): void {
   }
 
   console.log("└──────────────────────┴────────────────────────────────────────┴──────────────────────┴────────────────────────────┘\n");
-  console.log("💡 \x1b[90mMulti-model requests automatically route to connected accounts with zero extra keys needed.\x1b[0m\n");
+  console.log("💡 \x1b[90mAll models run instantly with zero API keys required. Multi-model duels and reviews are 100% free.\x1b[0m\n");
 }
