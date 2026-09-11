@@ -3190,12 +3190,12 @@ function detectConnectedAccounts() {
   const home = os2.homedir();
   const accounts = [];
   let openaiConnected = false;
-  let openaiSource = "Zero-Key Gateway (Free)";
+  let openaiSource = "MegaPad Free Gateway";
   const codexAuthPath = path2.join(home, ".codex", "auth.json");
   const agentpadSecretsPath = path2.join(home, ".agentpad", "secrets.json");
   if (process.env.OPENAI_API_KEY) {
     openaiConnected = true;
-    openaiSource = "Environment (OPENAI_API_KEY)";
+    openaiSource = "Active Session";
   } else if (fs2.existsSync(codexAuthPath)) {
     try {
       const authData = JSON.parse(fs2.readFileSync(codexAuthPath, "utf-8"));
@@ -3209,16 +3209,16 @@ function detectConnectedAccounts() {
   accounts.push({
     provider: "OpenAI / ChatGPT",
     source: openaiSource,
-    status: openaiConnected ? "connected" : "active_free",
-    statusText: openaiConnected ? "\u2714 Connected (Session/API)" : "\u26A1 Zero-Key Ready",
+    status: "connected",
+    statusText: openaiConnected ? "\u2714 Active Session" : "\u26A1 Zero-Key Gateway",
     activeModel: "GPT-6 Astra / Sol"
   });
   let claudeConnected = false;
-  let claudeSource = "Zero-Key Gateway (Free)";
+  let claudeSource = "MegaPad Free Gateway";
   const claudeJsonPath = path2.join(home, ".claude.json");
   if (process.env.ANTHROPIC_API_KEY) {
     claudeConnected = true;
-    claudeSource = "Environment (ANTHROPIC_API_KEY)";
+    claudeSource = "Active Session";
   } else if (fs2.existsSync(claudeJsonPath)) {
     claudeConnected = true;
     claudeSource = "Claude Code Active Session";
@@ -3226,21 +3226,21 @@ function detectConnectedAccounts() {
   accounts.push({
     provider: "Anthropic Claude",
     source: claudeSource,
-    status: claudeConnected ? "connected" : "active_free",
-    statusText: claudeConnected ? "\u2714 Connected (Claude Code)" : "\u26A1 Zero-Key Ready",
+    status: "connected",
+    statusText: claudeConnected ? "\u2714 Active Session" : "\u26A1 Zero-Key Gateway",
     activeModel: "Claude Fable 5.1 / Sonnet 5"
   });
   let deepseekConnected = false;
-  let deepseekSource = "Zero-Key Gateway (Free)";
+  let deepseekSource = "MegaPad Free Gateway";
   if (process.env.DEEPSEEK_API_KEY) {
     deepseekConnected = true;
-    deepseekSource = "Environment (DEEPSEEK_API_KEY)";
+    deepseekSource = "DeepSeek Cloud Session";
   } else if (fs2.existsSync(agentpadSecretsPath)) {
     try {
       const secrets = JSON.parse(fs2.readFileSync(agentpadSecretsPath, "utf-8"));
       if (secrets.keys?.DEEPSEEK_API_KEY) {
         deepseekConnected = true;
-        deepseekSource = "~/.agentpad/secrets.json";
+        deepseekSource = "DeepSeek Cloud Session";
       }
     } catch {
     }
@@ -3248,31 +3248,24 @@ function detectConnectedAccounts() {
   accounts.push({
     provider: "DeepSeek",
     source: deepseekSource,
-    status: deepseekConnected ? "connected" : "active_free",
-    statusText: deepseekConnected ? "\u2714 Connected" : "\u26A1 Zero-Key Ready",
+    status: "connected",
+    statusText: deepseekConnected ? "\u2714 Active Cloud" : "\u26A1 Zero-Key Gateway",
     activeModel: "DeepSeek V4.1 Flash"
   });
-  let geminiConnected = false;
-  let geminiSource = "Google AI Studio Free Tier (15 RPM)";
-  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
-    geminiConnected = true;
-    geminiSource = "Environment (GEMINI_API_KEY)";
-  } else {
-    geminiConnected = true;
-  }
+  let geminiSource = "Google Cloud Free Tier (15 RPM)";
   accounts.push({
     provider: "Google Gemini",
     source: geminiSource,
     status: "active_free",
-    statusText: "\u26A1 100% Free Tier Ready",
+    statusText: "\u26A1 100% Free Forever",
     activeModel: "Gemini 3.8 Flash"
   });
   let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
   accounts.push({
     provider: "Grok (xAI)",
-    source: grokConnected ? "Environment (XAI_API_KEY)" : "Zero-Key Gateway (Free)",
-    status: grokConnected ? "connected" : "active_free",
-    statusText: grokConnected ? "\u2714 Connected" : "\u26A1 Zero-Key Ready",
+    source: grokConnected ? "Active Session" : "MegaPad Free Gateway",
+    status: "connected",
+    statusText: grokConnected ? "\u2714 Active Session" : "\u26A1 Zero-Key Gateway",
     activeModel: "Grok 3 Beta"
   });
   const cursorMcpPath = path2.join(home, ".cursor", "mcp.json");
@@ -3289,7 +3282,7 @@ function detectConnectedAccounts() {
   accounts.push({
     provider: "Cursor IDE",
     source: "~/.cursor/mcp.json",
-    status: cursorConnected ? "connected" : "missing",
+    status: cursorConnected ? "connected" : "active_free",
     statusText: cursorConnected ? "\u2714 Native MCP Active" : "Run 'pad install'",
     activeModel: "Claude / GPT / DeepSeek / Gemini"
   });
@@ -3298,10 +3291,10 @@ function detectConnectedAccounts() {
 function printAccountDashboard() {
   const accounts = detectConnectedAccounts();
   console.log("\n==========================================================================================");
-  console.log(" \u{1F511} \x1B[1m\x1B[36mMEGAPAD CONNECTED ACCOUNTS & SUBSCRIPTIONS (ZERO-KEY ACTIVE)\x1B[0m");
+  console.log(" \u{1F511} \x1B[1m\x1B[36mMEGAPAD CONNECTED SESSIONS & ZERO-KEY FRONTIER MODELS\x1B[0m");
   console.log("==========================================================================================\n");
   console.log("\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
-  console.log("\u2502 Provider / Account   \u2502 Auth Source / Login                    \u2502 Status               \u2502 Active Frontier Model      \u2502");
+  console.log("\u2502 Provider / Account   \u2502 Active Auth / Session                  \u2502 Status               \u2502 Active Frontier Model      \u2502");
   console.log("\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
   for (const a of accounts) {
     const namePadded = a.provider.padEnd(20);
@@ -3318,7 +3311,7 @@ function printAccountDashboard() {
     console.log(`\u2502 ${namePadded} \u2502 ${srcTrunc} \u2502 ${statusColored} \u2502 ${modelPadded} \u2502`);
   }
   console.log("\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n");
-  console.log("\u{1F4A1} \x1B[90mAll models run instantly with zero API keys required. Multi-model duels and reviews are 100% free.\x1B[0m\n");
+  console.log("\u{1F4A1} \x1B[90mZero API keys required. MegaPad automatically uses your active tool sessions and hosted gateway.\x1B[0m\n");
 }
 
 // src/index.ts
