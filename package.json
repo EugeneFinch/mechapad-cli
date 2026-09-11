@@ -1,11 +1,11 @@
 {
-  "name": "mechapad",
-  "version": "0.1.1",
-  "description": "Open Multi-Model AI Control Surface & Native MCP Server — Run Claude, GPT-5.5/Astra, DeepSeek R1, and Gemini 3.8 in parallel",
+  "name": "megapad",
+  "version": "0.1.0",
+  "description": "Open Multi-Model AI Control Surface & Native MCP Server — Run Claude Fable 5.1, GPT-6 Astra, DeepSeek V4.1 Flash, and Gemini 3.8 in parallel",
   "type": "module",
   "bin": {
-    "mechapad": "./dist/index.js",
-    "mechapad-mcp": "./dist/index.js"
+    "megapad": "./dist/index.js",
+    "megapad-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [

@@ -37,7 +37,7 @@ export async function runScientificCliBenchmark(
   }
 
   console.log("\n==========================================================================================");
-  console.log(" 🔬 \x1b[1m\x1b[36mMECHAPAD SCIENTIFIC MULTI-MODEL BENCHMARK\x1b[0m");
+  console.log(" 🔬 \x1b[1m\x1b[36mMEGAPAD SCIENTIFIC MULTI-MODEL BENCHMARK\x1b[0m");
   console.log("==========================================================================================");
   console.log(`\x1b[90mPrompt:\x1b[0m \x1b[1m"${prompt}"\x1b[0m`);
   console.log(`\x1b[90mTarget Providers:\x1b[0m ${targetModels.map((m) => `\x1b[33m${m}\x1b[0m`).join(", ")}`);

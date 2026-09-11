@@ -72,7 +72,7 @@ function startMcpServer() {
 
   const server = new Server(
     {
-      name: "mechapad",
+      name: "megapad",
       version: "0.1.0",
     },
     {
@@ -86,9 +86,9 @@ function startMcpServer() {
     return {
       tools: [
         {
-          name: "mechapad_compare",
+          name: "megapad_compare",
           description:
-            "Executes a prompt across multiple AI frontier models (Claude, OpenAI / GPT-4o, DeepSeek, Gemini, Grok) in parallel and returns side-by-side responses with performance metrics for comparison.",
+            "Executes a prompt across multiple AI frontier models (Claude, OpenAI / GPT-6, DeepSeek, Gemini, Grok) in parallel and returns side-by-side responses with performance metrics for comparison.",
           inputSchema: {
             type: "object",
             properties: {
@@ -100,7 +100,7 @@ function startMcpServer() {
                 type: "array",
                 items: {
                   type: "string",
-                  enum: ["claude", "openai", "deepseek", "gemini", "grok", "mechapad", "mock"],
+                  enum: ["claude", "openai", "deepseek", "gemini", "grok", "mock"],
                 },
                 description:
                   "List of model providers to execute concurrently. Defaults to ['claude', 'openai'].",
@@ -114,15 +114,15 @@ function startMcpServer() {
           },
         },
         {
-          name: "mechapad_consult_peer",
+          name: "megapad_consult_peer",
           description:
-            "Asks a specific peer AI model (e.g. DeepSeek R1 for mathematical reasoning or OpenAI GPT-4o for code) a targeted question to get a second opinion.",
+            "Asks a specific peer AI model (e.g. DeepSeek R1 for mathematical reasoning or OpenAI GPT-6 for code) a targeted question to get a second opinion.",
           inputSchema: {
             type: "object",
             properties: {
               model: {
                 type: "string",
-                enum: ["claude", "openai", "deepseek", "gemini", "grok", "mechapad", "mock"],
+                enum: ["claude", "openai", "deepseek", "gemini", "grok", "mock"],
                 description: "The target model provider to query.",
               },
               prompt: {
@@ -138,7 +138,7 @@ function startMcpServer() {
           },
         },
         {
-          name: "mechapad_council_code_review",
+          name: "megapad_council_code_review",
           description:
             "Sends code to a council of peer models (e.g. DeepSeek and OpenAI) to find edge-case bugs, security vulnerabilities, and alternative performance optimizations.",
           inputSchema: {
@@ -165,8 +165,8 @@ function startMcpServer() {
           },
         },
         {
-          name: "mechapad_list_models",
-          description: "Lists all configured and available model providers in Mechapad.",
+          name: "megapad_list_models",
+          description: "Lists all configured and available model providers in MegaPad.",
           inputSchema: {
             type: "object",
             properties: {},
@@ -180,7 +180,7 @@ function startMcpServer() {
     const { name, arguments: args } = request.params;
 
     try {
-      if (name === "mechapad_compare") {
+      if (name === "megapad_compare" || name === "mechapad_compare") {
         const prompt = String(args?.prompt || "");
         const models = Array.isArray(args?.models) && args.models.length > 0
           ? (args.models as any[])
@@ -198,7 +198,7 @@ function startMcpServer() {
         };
       }
 
-      if (name === "mechapad_consult_peer") {
+      if (name === "megapad_consult_peer" || name === "mechapad_consult_peer") {
         const model = String(args?.model || "openai");
         const prompt = String(args?.prompt || "");
         const system = args?.system ? String(args.system) : undefined;
@@ -226,7 +226,7 @@ function startMcpServer() {
         }
       }
 
-      if (name === "mechapad_council_code_review") {
+      if (name === "megapad_council_code_review" || name === "mechapad_council_code_review") {
         const code = String(args?.code || "");
         const context = args?.context ? String(args.context) : "";
         const reviewers = Array.isArray(args?.reviewer_models) && args.reviewer_models.length > 0
@@ -244,7 +244,7 @@ function startMcpServer() {
         };
       }
 
-      if (name === "mechapad_list_models") {
+      if (name === "megapad_list_models" || name === "mechapad_list_models") {
         const models = engine.getAvailableModels();
         return {
           content: [
@@ -263,7 +263,7 @@ function startMcpServer() {
         content: [
           {
             type: "text",
-            text: `Mechapad MCP Error: ${errorMsg}`,
+            text: `MegaPad MCP Error: ${errorMsg}`,
           },
         ],
         isError: true,
@@ -273,9 +273,9 @@ function startMcpServer() {
 
   const transport = new StdioServerTransport();
   server.connect(transport).then(() => {
-    console.error("Mechapad MCP Server running on stdio");
+    console.error("MegaPad MCP Server running on stdio");
   }).catch((err) => {
-    console.error("Fatal error running Mechapad MCP Server:", err);
+    console.error("Fatal error running MegaPad MCP Server:", err);
     process.exit(1);
   });
 }

@@ -10,7 +10,7 @@ interface InstallResult {
 }
 
 export async function runAgentInstaller(): Promise<InstallResult[]> {
-  console.log("\n🚀 \x1b[1m\x1b[36mMechapad MCP — Multi-Agent Auto-Configurator\x1b[0m");
+  console.log("\n🚀 \x1b[1m\x1b[36mMegaPad MCP — Multi-Agent Auto-Configurator\x1b[0m");
   console.log("Configuring Claude Code, Cursor, Codex CLI, and Antigravity...\n");
 
   const results: InstallResult[] = [];
@@ -32,12 +32,12 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
 
     const mcpDefinition = {
       command: "npx",
-      args: ["-y", "mechapad"],
+      args: ["-y", "megapad"],
       env: {},
     };
 
-    const isExisting = Boolean(claudeConfig.mcpServers.mechapad);
-    claudeConfig.mcpServers.mechapad = mcpDefinition;
+    const isExisting = Boolean(claudeConfig.mcpServers.megapad);
+    claudeConfig.mcpServers.megapad = mcpDefinition;
     fs.writeFileSync(claudeConfigPath, JSON.stringify(claudeConfig, null, 2));
 
     // Auto-allow permissions in ~/.claude/settings.json if it exists
@@ -56,10 +56,10 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
       if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
 
       const permissions = [
-        "mcp__mechapad__mechapad_compare",
-        "mcp__mechapad__mechapad_consult_peer",
-        "mcp__mechapad__mechapad_council_code_review",
-        "mcp__mechapad__mechapad_list_models",
+        "mcp__megapad__megapad_compare",
+        "mcp__megapad__megapad_consult_peer",
+        "mcp__megapad__megapad_council_code_review",
+        "mcp__megapad__megapad_list_models",
       ];
 
       for (const p of permissions) {
@@ -101,10 +101,10 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
       }
       if (!cursorConfig.mcpServers) cursorConfig.mcpServers = {};
 
-      const isExisting = Boolean(cursorConfig.mcpServers.mechapad);
-      cursorConfig.mcpServers.mechapad = {
+      const isExisting = Boolean(cursorConfig.mcpServers.megapad);
+      cursorConfig.mcpServers.megapad = {
         command: "npx",
-        args: ["-y", "mechapad"],
+        args: ["-y", "megapad"],
       };
 
       fs.writeFileSync(cursorMcpPath, JSON.stringify(cursorConfig, null, 2));
@@ -127,9 +127,9 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
           }
         }
         if (!localConfig.mcpServers) localConfig.mcpServers = {};
-        localConfig.mcpServers.mechapad = {
+        localConfig.mcpServers.megapad = {
           command: "npx",
-          args: ["-y", "mechapad"],
+          args: ["-y", "megapad"],
         };
         fs.writeFileSync(localMcpPath, JSON.stringify(localConfig, null, 2));
         results.push({
@@ -158,8 +158,8 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
         content = fs.readFileSync(codexConfigPath, "utf-8");
       }
 
-      if (!content.includes("[mcp.mechapad]")) {
-        const block = `\n\n[mcp.mechapad]\ncommand = "npx"\nargs = ["-y", "mechapad"]\n`;
+      if (!content.includes("[mcp.megapad]")) {
+        const block = `\n\n[mcp.megapad]\ncommand = "npx"\nargs = ["-y", "megapad"]\n`;
         fs.appendFileSync(codexConfigPath, block);
         results.push({
           target: "Codex CLI",
@@ -202,7 +202,7 @@ export async function runAgentInstaller(): Promise<InstallResult[]> {
   }
   console.log("└─────────────────────┴──────────────────┴────────────────────────────────────────────┘\n");
 
-  console.log("✨ \x1b[32mMechapad MCP is ready!\x1b[0m\n");
+  console.log("✨ \x1b[32mMegaPad MCP is ready!\x1b[0m\n");
   console.log("Try these commands inside Claude Code, Cursor, or Codex CLI:");
   console.log("  • \x1b[1m\"Run Claude and ChatGPT side-by-side to solve this bug\"\x1b[0m");
   console.log("  • \x1b[1m\"Ask DeepSeek R1 for a second opinion on this algorithm\"\x1b[0m");

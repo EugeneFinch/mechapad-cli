@@ -1,65 +1,97 @@
-# @agentpad/mcp (Mechapad Native MCP Server)
+<div align="center">
 
-Official **Model Context Protocol (MCP)** server for multi-model parallel execution, side-by-side comparison, and peer council code reviews.
+# ⚡ MegaPad CLI & Native MCP Server
 
-Run **Claude 3.7**, **OpenAI GPT-4o**, **DeepSeek R1**, and **Gemini 2.5** concurrently directly from **Claude Code**, **Claude Desktop**, **Cursor**, or any MCP-compatible environment.
+### Run Claude, ChatGPT, DeepSeek & Gemini in Parallel
+
+**Scientific Multi-Model Benchmarking & Token Cost Slasher for Claude Code, Cursor, and Terminal.**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/megapad.svg)](https://www.npmjs.com/package/megapad)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org/)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-blue.svg)](#-claude-code--cursor-integration)
+[![Cursor](https://img.shields.io/badge/Cursor-supported-blue.svg)](#-claude-code--cursor-integration)
+
+[Quickstart](#-quickstart) · [Token & Cost Analytics](#-scientific-benchmarks) · [Claude Code / Cursor](#-claude-code--cursor-integration) · [Piping Support](#-pipe-any-input)
+
+</div>
 
 ---
 
-## ⚡ Quick Setup
+## ⚡ Quickstart
 
-### 1. Claude Desktop Setup
-Add the following to your `claude_desktop_config.json` (on macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`):
+Run a multi-model comparison on any coding problem in **one command** (no install required):
 
-```json
-{
-  "mcpServers": {
-    "mechapad": {
-      "command": "node",
-      "args": ["/Users/eugene/Coding/Mechapad/packages/mcp/dist/index.js"],
-      "env": {
-        "OPENAI_API_KEY": "sk-...",
-        "ANTHROPIC_API_KEY": "sk-ant-...",
-        "DEEPSEEK_API_KEY": "sk-..."
-      }
-    }
-  }
-}
-```
-
-### 2. Claude Code Setup
-Run in your project directory:
 ```bash
-claude mcp add mechapad -- node /Users/eugene/Coding/Mechapad/packages/mcp/dist/index.js
+npx megapad compare "How do I optimize this query?"
+```
+
+*Executes across your available models in parallel and displays latency, generation speed (tok/s), exact token metrics, and cost savings vs Claude.*
+
+---
+
+## 🤖 Claude Code & Cursor Integration
+
+Add MegaPad directly into your AI coding agent as a **Native Model Context Protocol (MCP) server**:
+
+### 1-Click Auto Configurator
+```bash
+npx megapad install
+```
+*Auto-detects and writes config for Claude Code (`~/.claude.json`), Cursor (`~/.cursor/mcp.json`), and Codex CLI (`~/.codex/config.toml`).*
+
+### Or Add Directly to Claude Code
+```bash
+claude mcp add megapad -- npx -y megapad
+```
+
+### Try These Inside Claude:
+- `"Compare Claude Fable 5.1 vs DeepSeek V4.1 on this algorithm"`
+- `"Consult DeepSeek R1 for a second opinion on this database schema"`
+- `"Run a multi-model code review council on this file with GPT-6 Astra & Gemini 3.8"`
+
+---
+
+## 📊 Scientific Benchmarks
+
+Every query gives you high-resolution latency, tokens per second, and dollar cost comparisons:
+
+| Provider / Model | Status | Latency | Speed | Cost (USD) | vs Claude Cost |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **DeepSeek V4.1 Flash** | ✔ OK | 890ms | 185 tok/s | $0.00010 | ⚡ **98% Cheaper** |
+| **Gemini 3.8 Flash** | ✔ OK | 940ms | 145 tok/s | $0.00000 | 🎉 **100% Free ($0)** |
+| **ChatGPT (Subscription)** | ✔ OK | 820ms | 125 tok/s | $0.00000 | 🎉 **$0 Extra (Sub)** |
+| **GPT-6 Astra / Sol** | ✔ OK | 1,020ms | 130 tok/s | $0.00280 | ⚡ 30% Cheaper |
+| **Claude Fable 5.1 / Sonnet 5** | ✔ OK | 1,140ms | 110 tok/s | $0.00400 | Base (100%) |
+
+---
+
+## 🛠️ Pipe Any Input
+
+Pipe terminal output, compiler errors, or git diffs directly into MegaPad:
+
+```bash
+# Diagnose error logs across multiple models
+cat error.log | npx megapad "Diagnose this failure"
+
+# Multi-model review of your git staging
+git diff --staged | npx megapad "Review these changes for race conditions"
 ```
 
 ---
 
-## 🛠️ Exposed MCP Tools
+## 🔑 Subscriptions & API Keys
 
-### 1. `mechapad_compare`
-Runs a prompt or coding question across multiple models in parallel and returns side-by-side responses with latency & token metrics.
-- **`prompt`** *(string, required)*: The question or task to compare.
-- **`models`** *(array, optional)*: `["claude", "openai", "deepseek", "gemini", "grok"]` (Defaults to `["claude", "openai"]`).
+MegaPad automatically detects your existing CLI subscriptions and local environment keys:
 
-### 2. `mechapad_consult_peer`
-Asks a specific peer AI model (e.g. DeepSeek R1 for logic/math or GPT-4o for syntax) a targeted question.
-- **`model`** *(string, required)*: Model provider (`"deepseek"`, `"openai"`, `"claude"`, `"gemini"`, `"grok"`).
-- **`prompt`** *(string, required)*: Query for the model.
-
-### 3. `mechapad_council_code_review`
-Sends code to a peer council (DeepSeek R1 + GPT-4o) to detect subtle bugs, edge cases, and performance optimizations.
-- **`code`** *(string, required)*: Code snippet to review.
-- **`context`** *(string, optional)*: Requirements or constraints.
-- **`reviewer_models`** *(array, optional)*: Models to review (Defaults to `["openai", "deepseek"]`).
-
-### 4. `mechapad_list_models`
-Returns all configured and ready model providers.
+- **ChatGPT / OpenAI**: Reads your local Codex login session or `OPENAI_API_KEY`.
+- **Claude**: Uses your active Claude Code session or `ANTHROPIC_API_KEY`.
+- **DeepSeek**: Reads `DEEPSEEK_API_KEY` (from environment or `~/.env`).
+- **Gemini**: Free tier quota (15 RPM free forever) or `GEMINI_API_KEY`.
+- **Local Models**: Connects to local Ollama / LM Studio on `http://localhost:11434`.
 
 ---
 
-## 🔑 Authentication / API Keys
-Mechapad MCP automatically reads API keys from:
-- System environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`)
-- Local `.env` file in the workspace
-- User keychain / `~/.agentpad/secrets.json`
+## 📄 License
+
+[MIT](./LICENSE) © Eugene Finch & MegaPad Contributors
