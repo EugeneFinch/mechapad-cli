@@ -8,6 +8,7 @@ import {
 import { MultiModelEngine } from "./engine.js";
 import { runAgentInstaller } from "./installer.js";
 import { runScientificCliBenchmark } from "./cli-compare.js";
+import { detectConnectedAccounts, printAccountDashboard } from "./accounts.js";
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
@@ -23,6 +24,17 @@ async function readStdin(): Promise<string> {
 }
 
 async function start() {
+  const isStatus =
+    process.argv.includes("status") ||
+    process.argv.includes("auth") ||
+    process.argv.includes("accounts") ||
+    process.argv.includes("whoami") ||
+    process.argv.includes("--status");
+  if (isStatus) {
+    printAccountDashboard();
+    process.exit(0);
+  }
+
   const isInstaller = process.argv.includes("install") || process.argv.includes("--install");
   if (isInstaller) {
     await runAgentInstaller();
@@ -33,6 +45,7 @@ async function start() {
   const isCompareCmd =
     process.argv.includes("compare") ||
     process.argv.includes("benchmark") ||
+    process.argv.includes("review") ||
     (!isServeMcp && process.argv.length > 2 && !process.argv[2].startsWith("-"));
 
   // CLI Compare / Benchmark mode
@@ -172,6 +185,14 @@ function startMcpServer() {
             properties: {},
           },
         },
+        {
+          name: "megapad_status",
+          description: "Inspects all connected developer accounts, subscriptions (Codex/ChatGPT, Claude, DeepSeek, Gemini, Cursor), and active readiness.",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
       ],
     };
   });
@@ -180,6 +201,24 @@ function startMcpServer() {
     const { name, arguments: args } = request.params;
 
     try {
+      if (name === "megapad_status" || name === "mechapad_status") {
+        const accounts = detectConnectedAccounts();
+        let summary = "### 🔑 MegaPad Connected Accounts & Readiness\n\n";
+        summary += "| Provider / Account | Auth Source | Status | Active Frontier Model |\n";
+        summary += "| :--- | :--- | :---: | :--- |\n";
+        for (const a of accounts) {
+          const icon = a.status === "connected" ? "✅" : a.status === "active_free" ? "⚡" : "❌";
+          summary += `| **${a.provider}** | ${a.source} | ${icon} ${a.statusText} | \`${a.activeModel}\` |\n`;
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: summary,
+            },
+          ],
+        };
+      }
       if (name === "megapad_compare" || name === "mechapad_compare") {
         const prompt = String(args?.prompt || "");
         const models = Array.isArray(args?.models) && args.models.length > 0

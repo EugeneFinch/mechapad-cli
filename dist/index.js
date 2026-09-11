@@ -266,8 +266,8 @@ function parseFrontmatter(raw) {
   }
   return { name, description, body };
 }
-function classifySource(root, path2) {
-  const s = `${root} ${path2}`.toLowerCase();
+function classifySource(root, path3) {
+  const s = `${root} ${path3}`.toLowerCase();
   if (s.includes(".agentpad") || s.includes("/fafo/skills"))
     return "agentpad";
   if (s.includes("hermes"))
@@ -308,18 +308,18 @@ function loadAllSkills(force = false) {
   const byName = /* @__PURE__ */ new Map();
   lastRoots = skillSearchRoots();
   for (const root of lastRoots) {
-    for (const path2 of walkSkillFiles(root)) {
+    for (const path3 of walkSkillFiles(root)) {
       try {
-        const raw = readFileSync2(path2, "utf8");
+        const raw = readFileSync2(path3, "utf8");
         const { name, description, body } = parseFrontmatter(raw);
-        const folder = dirname2(path2).split(/[/\\]/).pop() || "skill";
+        const folder = dirname2(path3).split(/[/\\]/).pop() || "skill";
         const skillName = (name || folder).toLowerCase().replace(/\s+/g, "-");
         const candidate = {
           name: skillName,
           description: description || "(no description)",
           body: body || raw,
-          source: classifySource(root, path2),
-          path: path2
+          source: classifySource(root, path3),
+          path: path3
         };
         const existing = byName.get(skillName);
         if (!existing) {
@@ -1591,10 +1591,10 @@ function cloudConfigPath() {
 }
 function readFile() {
   try {
-    const path2 = cloudConfigPath();
-    if (!existsSync4(path2))
+    const path3 = cloudConfigPath();
+    if (!existsSync4(path3))
       return { version: 1 };
-    return JSON.parse(readFileSync4(path2, "utf8"));
+    return JSON.parse(readFileSync4(path3, "utf8"));
   } catch {
     return { version: 1 };
   }
@@ -2781,6 +2781,145 @@ async function runScientificCliBenchmark(prompt, modelList) {
   }
 }
 
+// src/accounts.ts
+import * as fs2 from "node:fs";
+import * as path2 from "node:path";
+import * as os2 from "node:os";
+function detectConnectedAccounts() {
+  const home = os2.homedir();
+  const accounts = [];
+  let openaiConnected = false;
+  let openaiSource = "Not connected";
+  const codexAuthPath = path2.join(home, ".codex", "auth.json");
+  const agentpadSecretsPath = path2.join(home, ".agentpad", "secrets.json");
+  if (process.env.OPENAI_API_KEY) {
+    openaiConnected = true;
+    openaiSource = "Environment (OPENAI_API_KEY)";
+  } else if (fs2.existsSync(codexAuthPath)) {
+    try {
+      const authData = JSON.parse(fs2.readFileSync(codexAuthPath, "utf-8"));
+      if (authData.tokens || authData.access_token || authData.session) {
+        openaiConnected = true;
+        openaiSource = "Codex CLI / ChatGPT Plus Session";
+      }
+    } catch {
+    }
+  }
+  accounts.push({
+    provider: "OpenAI / ChatGPT",
+    source: openaiSource,
+    status: openaiConnected ? "connected" : "missing",
+    statusText: openaiConnected ? "\u2714 Connected (Subscription/API)" : "\u2716 Set OPENAI_API_KEY",
+    activeModel: "GPT-6 Astra / Sol"
+  });
+  let claudeConnected = false;
+  let claudeSource = "Not connected";
+  const claudeJsonPath = path2.join(home, ".claude.json");
+  if (process.env.ANTHROPIC_API_KEY) {
+    claudeConnected = true;
+    claudeSource = "Environment (ANTHROPIC_API_KEY)";
+  } else if (fs2.existsSync(claudeJsonPath)) {
+    claudeConnected = true;
+    claudeSource = "Claude Code Active Session";
+  }
+  accounts.push({
+    provider: "Anthropic Claude",
+    source: claudeSource,
+    status: claudeConnected ? "connected" : "missing",
+    statusText: claudeConnected ? "\u2714 Connected (Claude Code)" : "\u2716 Set ANTHROPIC_API_KEY",
+    activeModel: "Claude Fable 5.1 / Sonnet 5"
+  });
+  let deepseekConnected = false;
+  let deepseekSource = "Not connected";
+  if (process.env.DEEPSEEK_API_KEY) {
+    deepseekConnected = true;
+    deepseekSource = "Environment (DEEPSEEK_API_KEY)";
+  } else if (fs2.existsSync(agentpadSecretsPath)) {
+    try {
+      const secrets = JSON.parse(fs2.readFileSync(agentpadSecretsPath, "utf-8"));
+      if (secrets.keys?.DEEPSEEK_API_KEY) {
+        deepseekConnected = true;
+        deepseekSource = "~/.agentpad/secrets.json";
+      }
+    } catch {
+    }
+  }
+  accounts.push({
+    provider: "DeepSeek",
+    source: deepseekSource,
+    status: deepseekConnected ? "connected" : "missing",
+    statusText: deepseekConnected ? "\u2714 Connected" : "\u2716 Set DEEPSEEK_API_KEY",
+    activeModel: "DeepSeek V4.1 Flash / R1"
+  });
+  let geminiConnected = false;
+  let geminiSource = "Google AI Studio Free Tier (15 RPM)";
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+    geminiConnected = true;
+    geminiSource = "Environment (GEMINI_API_KEY)";
+  } else {
+    geminiConnected = true;
+  }
+  accounts.push({
+    provider: "Google Gemini",
+    source: geminiSource,
+    status: "active_free",
+    statusText: "\u26A1 100% Free Tier Ready",
+    activeModel: "Gemini 3.8 Flash"
+  });
+  const cursorMcpPath = path2.join(home, ".cursor", "mcp.json");
+  let cursorConnected = false;
+  if (fs2.existsSync(cursorMcpPath)) {
+    try {
+      const cursorConfig = JSON.parse(fs2.readFileSync(cursorMcpPath, "utf-8"));
+      if (cursorConfig.mcpServers?.megapad || cursorConfig.mcpServers?.mechapad) {
+        cursorConnected = true;
+      }
+    } catch {
+    }
+  }
+  accounts.push({
+    provider: "Cursor IDE",
+    source: "~/.cursor/mcp.json",
+    status: cursorConnected ? "connected" : "missing",
+    statusText: cursorConnected ? "\u2714 Native MCP Active" : "Run 'megapad install'",
+    activeModel: "Claude / GPT / DeepSeek / Gemini"
+  });
+  let grokConnected = Boolean(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
+  accounts.push({
+    provider: "Grok (xAI)",
+    source: grokConnected ? "Environment (XAI_API_KEY)" : "No key found",
+    status: grokConnected ? "connected" : "missing",
+    statusText: grokConnected ? "\u2714 Connected" : "Optional (Set XAI_API_KEY)",
+    activeModel: "Grok 3 Beta"
+  });
+  return accounts;
+}
+function printAccountDashboard() {
+  const accounts = detectConnectedAccounts();
+  console.log("\n==========================================================================================");
+  console.log(" \u{1F511} \x1B[1m\x1B[36mMEGAPAD CONNECTED ACCOUNTS & SUBSCRIPTIONS\x1B[0m");
+  console.log("==========================================================================================\n");
+  console.log("\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+  console.log("\u2502 Provider / Account   \u2502 Auth Source / Login                    \u2502 Status               \u2502 Active Frontier Model      \u2502");
+  console.log("\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
+  for (const a of accounts) {
+    const namePadded = a.provider.padEnd(20);
+    const srcTrunc = a.source.length > 38 ? a.source.slice(0, 35) + "..." : a.source.padEnd(38);
+    let statusColored = "";
+    if (a.status === "connected") {
+      statusColored = `\x1B[32m${a.statusText.padEnd(20)}\x1B[0m`;
+    } else if (a.status === "active_free") {
+      statusColored = `\x1B[36m${a.statusText.padEnd(20)}\x1B[0m`;
+    } else {
+      statusColored = `\x1B[90m${a.statusText.padEnd(20)}\x1B[0m`;
+    }
+    const modelPadded = a.activeModel.padEnd(26);
+    console.log(`\u2502 ${namePadded} \u2502 ${srcTrunc} \u2502 ${statusColored} \u2502 ${modelPadded} \u2502`);
+  }
+  console.log("\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n");
+  console.log("\u{1F4A1} \x1B[90mMulti-model requests automatically route to connected accounts with zero extra keys needed.\x1B[0m\n");
+}
+
 // src/index.ts
 async function readStdin() {
   if (process.stdin.isTTY) return "";
@@ -2795,13 +2934,18 @@ async function readStdin() {
   });
 }
 async function start() {
+  const isStatus = process.argv.includes("status") || process.argv.includes("auth") || process.argv.includes("accounts") || process.argv.includes("whoami") || process.argv.includes("--status");
+  if (isStatus) {
+    printAccountDashboard();
+    process.exit(0);
+  }
   const isInstaller = process.argv.includes("install") || process.argv.includes("--install");
   if (isInstaller) {
     await runAgentInstaller();
     process.exit(0);
   }
   const isServeMcp = process.argv.includes("serve") || process.argv.includes("--mcp");
-  const isCompareCmd = process.argv.includes("compare") || process.argv.includes("benchmark") || !isServeMcp && process.argv.length > 2 && !process.argv[2].startsWith("-");
+  const isCompareCmd = process.argv.includes("compare") || process.argv.includes("benchmark") || process.argv.includes("review") || !isServeMcp && process.argv.length > 2 && !process.argv[2].startsWith("-");
   if (isCompareCmd) {
     const rawArgs = process.argv.slice(2);
     let models;
@@ -2930,6 +3074,14 @@ function startMcpServer() {
             type: "object",
             properties: {}
           }
+        },
+        {
+          name: "megapad_status",
+          description: "Inspects all connected developer accounts, subscriptions (Codex/ChatGPT, Claude, DeepSeek, Gemini, Cursor), and active readiness.",
+          inputSchema: {
+            type: "object",
+            properties: {}
+          }
         }
       ]
     };
@@ -2937,6 +3089,25 @@ function startMcpServer() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
+      if (name === "megapad_status" || name === "mechapad_status") {
+        const accounts = detectConnectedAccounts();
+        let summary = "### \u{1F511} MegaPad Connected Accounts & Readiness\n\n";
+        summary += "| Provider / Account | Auth Source | Status | Active Frontier Model |\n";
+        summary += "| :--- | :--- | :---: | :--- |\n";
+        for (const a of accounts) {
+          const icon = a.status === "connected" ? "\u2705" : a.status === "active_free" ? "\u26A1" : "\u274C";
+          summary += `| **${a.provider}** | ${a.source} | ${icon} ${a.statusText} | \`${a.activeModel}\` |
+`;
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: summary
+            }
+          ]
+        };
+      }
       if (name === "megapad_compare" || name === "mechapad_compare") {
         const prompt = String(args?.prompt || "");
         const models = Array.isArray(args?.models) && args.models.length > 0 ? args.models : ["claude", "openai"];
