@@ -1208,9 +1208,11 @@ function createGrokProvider(getKey) {
         low: "grok-3-mini",
         medium: "grok-3",
         high: "grok-3",
-        max: "grok-3"
+        max: "grok-3",
+        grok3: "grok-3",
+        grok: "grok-3"
       };
-      return { model: models[level] ?? "grok-3-mini" };
+      return { model: models[level.toLowerCase()] ?? "grok-3" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
@@ -1393,12 +1395,19 @@ function createClaudeProvider(getKey) {
     name: "Claude (Anthropic)",
     mapEffort(level) {
       const models = {
+        fable: "claude-fable-5",
+        "claude-fable": "claude-fable-5",
+        opus: "claude-opus-4-8",
+        "claude-opus": "claude-opus-4-8",
+        sonnet: "claude-sonnet-5",
+        "claude-sonnet": "claude-sonnet-5",
+        haiku: "claude-3-5-haiku",
         low: "claude-sonnet-5",
         medium: "claude-sonnet-5",
         high: "claude-fable-5",
         max: "claude-fable-5"
       };
-      return { model: models[level] ?? "claude-sonnet-5" };
+      return { model: models[level.toLowerCase()] ?? "claude-fable-5" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
@@ -1532,12 +1541,20 @@ function createOpenAIProvider(getKey) {
     name: "OpenAI",
     mapEffort(level) {
       const models = {
+        astra: "gpt-6-astra",
+        "gpt-6": "gpt-6-astra",
+        gpt6: "gpt-6-astra",
+        sol: "gpt-5.6-sol",
+        "gpt-5.6": "gpt-5.6-sol",
+        codex: "codex-5.5",
+        o3: "o3",
+        o4: "o4",
         low: "gpt-4o-mini",
         medium: "gpt-4o",
         high: "gpt-5.6-sol",
         max: "gpt-6-astra"
       };
-      return { model: models[level] ?? "gpt-5.6-sol" };
+      return { model: models[level.toLowerCase()] ?? "gpt-6-astra" };
     },
     async run(input, onEvent) {
       const apiKey = getKey(input.slot);
