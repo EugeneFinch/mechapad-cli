@@ -1,6 +1,6 @@
 {
   "name": "mechapad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open Multi-Model AI Control Surface & Native MCP Server — Run Claude, GPT-4o, DeepSeek, and Gemini in parallel",
   "type": "module",
   "bin": {
