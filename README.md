@@ -2,7 +2,7 @@
 
 # ⚡ Mechapad CLI & Native MCP Server
 
-### Run Claude, ChatGPT, DeepSeek & Gemini in Parallel
+### Run Claude Fable 5, GPT-5.5 / Astra, DeepSeek R1 & Gemini 3.8 in Parallel
 
 **Scientific Multi-Model Benchmarking & Token Cost Slasher for Claude Code, Cursor, and Terminal.**
 
@@ -26,7 +26,7 @@ Run a multi-model comparison on any coding problem in **one command** (no instal
 npx mechapad compare "How do I optimize this query?"
 ```
 
-*Executes across your available models in parallel and displays latency, generation speed (tok/s), exact token metrics, and cost savings vs Claude 3.7.*
+*Executes across your available models in parallel and displays latency, generation speed (tok/s), exact token metrics, and cost savings vs Claude.*
 
 ---
 
@@ -56,13 +56,13 @@ claude mcp add mechapad -- npx -y mechapad
 
 Every query gives you high-resolution latency, tokens per second, and dollar cost comparisons:
 
-| Provider / Model | Status | Latency | Speed | Cost (USD) | vs Claude 3.7 Cost |
+| Provider / Model | Status | Latency | Speed | Cost (USD) | vs Claude Cost |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **DeepSeek R1 / V3** | ✔ OK | 1,051ms | 157 tok/s | $0.00012 | ⚡ **98% Cheaper** |
-| **Gemini 2.5 Flash** | ✔ OK | 1,695ms | 98 tok/s | $0.00000 | 🎉 **100% Free ($0)** |
-| **ChatGPT (Subscription)** | ✔ OK | 980ms | 110 tok/s | $0.00000 | 🎉 **$0 Extra (Sub)** |
-| **OpenAI GPT-4o** | ✔ OK | 1,120ms | 120 tok/s | $0.00369 | ⚡ 31% Cheaper |
-| **Claude 3.7 Sonnet** | ✔ OK | 1,240ms | 95 tok/s | $0.00537 | Base (100%) |
+| **Gemini 3.8 / 2.5 Flash** | ✔ OK | 1,695ms | 98 tok/s | $0.00000 | 🎉 **100% Free ($0)** |
+| **ChatGPT Plus/Pro (Subscription)** | ✔ OK | 980ms | 110 tok/s | $0.00000 | 🎉 **$0 Extra (Sub)** |
+| **OpenAI GPT-5.5 / Astra** | ✔ OK | 1,120ms | 120 tok/s | $0.00369 | ⚡ 31% Cheaper |
+| **Claude Fable 5 / Sonnet 5** | ✔ OK | 1,240ms | 95 tok/s | $0.00537 | Base (100%) |
 
 ---
 

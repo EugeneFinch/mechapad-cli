@@ -10,12 +10,12 @@ export interface ProviderPricing {
 
 export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
   claude: {
-    name: "Claude 3.7 Sonnet",
+    name: "Claude Fable 5 / Sonnet 5",
     inputPer1M: 3.0,
     outputPer1M: 15.0,
   },
   openai: {
-    name: "OpenAI GPT-4o",
+    name: "OpenAI GPT-5.5 / Astra",
     inputPer1M: 2.5,
     outputPer1M: 10.0,
   },
@@ -31,7 +31,7 @@ export const PROVIDER_PRICING: Record<string, ProviderPricing> = {
     outputPer1M: 0.28,
   },
   gemini: {
-    name: "Gemini 2.5 Flash",
+    name: "Gemini 3.8 Pro / Flash",
     inputPer1M: 0.075,
     outputPer1M: 0.3,
     isSubscriptionOrFree: true, // Free tier quota
@@ -89,7 +89,6 @@ export class MultiModelEngine {
   }
 
   private calculateTokens(prompt: string, output: string, providerId: string): TokenMetrics {
-    // Standard LLM token estimation (~3.8 chars per token for code & technical english)
     const inputTokens = Math.max(1, Math.ceil(prompt.length / 3.8));
     const outputTokens = output ? Math.ceil(output.length / 3.8) : 0;
     const totalTokens = inputTokens + outputTokens;
@@ -104,7 +103,6 @@ export class MultiModelEngine {
       (inputTokens / 1_000_000) * pricing.inputPer1M +
       (outputTokens / 1_000_000) * pricing.outputPer1M;
 
-    // Compare vs Claude 3.7 baseline
     const claudeCost =
       (inputTokens / 1_000_000) * PROVIDER_PRICING.claude.inputPer1M +
       (outputTokens / 1_000_000) * PROVIDER_PRICING.claude.outputPer1M;
@@ -233,11 +231,9 @@ export class MultiModelEngine {
       };
     });
 
-    // Format side-by-side comparison with detailed token & cost metrics table
     let summary = `## ⚡ Multi-Model Parallel Execution & Token Analytics\n\n`;
     summary += `**Prompt:** *${prompt.length > 100 ? prompt.slice(0, 100) + "…" : prompt}*\n\n`;
 
-    // 1. Analytics & Cost Breakdown Table
     summary += `### 📊 Token & Cost Efficiency Breakdown\n\n`;
     summary += `| Provider | Status | Latency | In Tokens | Out Tokens | Total Tokens | Est. Cost (USD) | vs Claude Cost |\n`;
     summary += `| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n`;
@@ -264,7 +260,6 @@ export class MultiModelEngine {
 
     summary += `\n---\n\n`;
 
-    // 2. Full Side-by-Side Model Responses
     summary += `### 📝 Model Responses Side-by-Side\n\n`;
     for (const r of results) {
       const statusIcon = r.success ? "✅" : "❌";
